@@ -1,0 +1,35 @@
+title: SMART: Error Counter Monitoring
+agents: linux
+catalog: os/storage
+license: GPL
+distribution: check_mk
+description:
+ This check monitors SMART error counters on storage devices that support
+ SCSI error counter logs. It tracks detailed error statistics including
+ corrected and uncorrected errors across read, write, and verify operations.
+
+ The check provides both absolute error counts and normalized error rates
+ per terabyte of data processed, allowing for comprehensive storage health
+ monitoring and trend analysis.
+
+ This check requires the {smartmontools} package to be installed on the
+ monitored host. The agent plugin uses {smartctl} to collect error counter
+ data from storage devices.
+
+ The plugin automatically discovers devices that support SCSI error counter
+ logs (typically enterprise SATA/SAS drives and many enterprise SSDs).
+ Consumer SSDs and USB drives often do not support this feature and will
+ not be monitored.
+
+ Each operation type (read, write, verify) generates detailed metrics:
+ errors corrected by ECC fast/delayed, errors corrected by rereads/rewrites,
+ total corrected errors, correction algorithm invocations, bytes processed,
+ and total uncorrected errors.
+
+item:
+ The device path (e.g. {/dev/sda})
+
+discovery:
+ One service is created for each storage device that supports SCSI error
+ counter logs and has meaningful error counter data available. Services
+ are named "SMART Errors <device_path>" (e.g. "SMART Errors /dev/sda").

@@ -1,0 +1,15 @@
+/*
+!/smart_errors
+!/README.md
+!/CHANGELOG.md
+!/LICENSE
+!/CLAUDE.md
+!/.gitignore
+*~
+*.swp
+*.bak
+*.tmp
+*.log
+*.DS_Store
+*.idea
+*.env

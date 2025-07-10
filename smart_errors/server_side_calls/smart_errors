@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""
+CheckMK Agent Plugin for SMART Error Monitoring
+Collects SMART error counter logs from all available drives
+This runs on the monitored host, not the CheckMK server
+Compatible with CheckMK 2.3
+"""
+
+import json
+import subprocess
+import sys
+from typing import Dict, List, Optional
+
+
+def get_smart_devices() -> List[Dict]:
+    """Get list of SMART-capable devices"""
+    try:
+        result = subprocess.run(
+            ['smartctl', '--json', '--scan'],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode != 0:
+            return []
+        
+        data = json.loads(result.stdout)
+        return data.get('devices', [])
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        return []
+
+
+def get_smart_info_and_errors(device_name: str) -> Optional[Dict]:
+    """Get SMART device info and error log for a specific device"""
+    try:
+        result = subprocess.run(
+            ['smartctl', '--json=c', '--info', '--log=error', device_name],
+            capture_output=True,
+            text=True,
+            timeout=30
+        )
+        if result.returncode not in [0, 1, 2, 4]:  # Allow some non-zero codes
+            return None
+        
+        data = json.loads(result.stdout)
+        return data
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        return None
+
+
+def main():
+    """Main function to collect and output SMART error data"""
+    devices = get_smart_devices()
+    
+    if not devices:
+        # No SMART devices found - don't output section at all
+        return
+    
+    print("<<<smart_errors:sep(124)>>>")
+    valid_devices_found = False
+    
+    for device in devices:
+        device_name = device.get('name', '')
+        if not device_name:
+            continue
+            
+        smart_data = get_smart_info_and_errors(device_name)
+        if smart_data is None:
+            print(f"{device_name}|ERROR|Failed to get SMART data")
+            continue
+        
+        # Extract relevant data
+        device_info = smart_data.get('device', {})
+        model_info = smart_data.get('model_name', '')
+        serial_info = smart_data.get('serial_number', '')
+        firmware_info = smart_data.get('firmware_version', '')
+        capacity_info = smart_data.get('user_capacity', {})
+        error_log = smart_data.get('scsi_error_counter_log', {})
+        
+        # Skip drives without error counter logs (common for SSDs, USB drives, etc.)
+        if not error_log:
+            continue
+        
+        # Validate that error counters contain expected operations (read, write, verify)
+        valid_operations = ['read', 'write', 'verify']
+        if not any(op in error_log for op in valid_operations):
+            continue
+        
+        # Check if at least one operation has meaningful data
+        has_meaningful_data = False
+        for operation in valid_operations:
+            if operation in error_log:
+                op_data = error_log[operation]
+                if isinstance(op_data, dict) and 'total_errors_corrected' in op_data:
+                    has_meaningful_data = True
+                    break
+        
+        if not has_meaningful_data:
+            continue
+        
+        # Create compact JSON output with friendly info
+        output_data = {
+            'device': device_info.get('name', device_name),
+            'protocol': device_info.get('protocol', 'unknown'),
+            'model': model_info,
+            'serial': serial_info,
+            'firmware': firmware_info,
+            'capacity_bytes': capacity_info.get('bytes', 0) if isinstance(capacity_info, dict) else 0,
+            'error_counters': error_log
+        }
+        
+        print(f"{device_name}|{json.dumps(output_data, separators=(',', ':'))}")
+        valid_devices_found = True
+
+
+if __name__ == "__main__":
+    main()
