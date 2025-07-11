@@ -6,12 +6,12 @@ CheckMK SMART Error Monitoring Plugin for CheckMK 2.3 - monitors SCSI error coun
 ## Architecture
 
 ### Components
-- **Agent Plugin**: `smart_errors/server_side_calls/smart_errors` - Python script that runs on monitored hosts
-- **Check Plugin**: `smart_errors/agent_based/smart_errors.py` - Server-side processing using cmk.agent_based.v2
-- **Documentation**: `smart_errors/checkman/smart_errors` - CheckMK plugin documentation
-- **Rulesets**: `smart_errors/rulesets/smart_errors.py` - GUI configuration for thresholds
-- **Graphing**: `smart_errors/graphing/smart_errors.py` - Metrics and graph definitions
-- **Bakery**: `smart_errors/server_side_calls/smart_errors.py` - Automatic agent deployment
+- **Agent Plugin**: `local/share/check_mk/agents/plugins/smart_errors` - Python script that runs on monitored hosts
+- **Check Plugin**: `local/lib/python3/cmk_addons/plugins/smart_errors/agent_based/smart_errors.py` - Server-side processing using cmk.agent_based.v2
+- **Documentation**: `local/lib/python3/cmk_addons/plugins/smart_errors/checkman/smart_errors` - CheckMK plugin documentation
+- **Rulesets**: `local/lib/python3/cmk_addons/plugins/smart_errors/rulesets/smart_errors.py` - GUI configuration for thresholds
+- **Graphing**: `local/lib/python3/cmk_addons/plugins/smart_errors/graphing/smart_errors.py` - Metrics and graph definitions
+- **Bakery**: `local/lib/check_mk/base/cee/plugins/bakery/smart_errors.py` - Automatic agent deployment
 
 ### Data Flow
 1. Agent plugin runs `smartctl` commands to collect SMART data
@@ -94,7 +94,7 @@ from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
 ### Test Agent Plugin
 ```bash
 # Test locally before deployment
-python3 smart_errors/server_side_calls/smart_errors
+python3 local/share/check_mk/agents/plugins/smart_errors
 
 # Test on target host after deployment
 /usr/lib/check_mk_agent/plugins/smart_errors
@@ -109,7 +109,7 @@ cmk -v --debug --checks=smart_errors hostname
 
 ### Validate Plugin Syntax
 ```bash
-python3 -m py_compile smart_errors/agent_based/smart_errors.py
+python3 -m py_compile local/lib/python3/cmk_addons/plugins/smart_errors/agent_based/smart_errors.py
 ```
 
 ## Configuration Parameters
@@ -131,14 +131,19 @@ python3 -m py_compile smart_errors/agent_based/smart_errors.py
 
 ### CheckMK Site Structure
 ```
-~/local/lib/python3/cmk_addons/plugins/
+~/local/lib/python3/cmk_addons/plugins/smart_errors/
 ├── agent_based/smart_errors.py
 ├── checkman/smart_errors        # Plugin documentation
 ├── graphing/smart_errors.py  
-├── rulesets/smart_errors.py
-└── server_side_calls/
-    ├── smart_errors.py      # Bakery configuration
-    └── smart_errors         # Agent plugin script
+└── rulesets/
+    ├── smart_errors.py          # Check parameter rules
+    └── ruleset_smart_errors_bakery.py  # Bakery configuration rules
+
+~/local/lib/check_mk/base/cee/plugins/bakery/
+└── smart_errors.py              # Bakery plugin logic
+
+~/local/share/check_mk/agents/plugins/
+└── smart_errors                 # Agent plugin script
 ```
 
 ### Agent Plugin Location

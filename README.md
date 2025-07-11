@@ -33,31 +33,35 @@ cp -r /path/to/smart_errors ./
 
 The directory structure should look like:
 ```
-~/local/lib/python3/cmk_addons/plugins/
+~/local/lib/python3/cmk_addons/plugins/smart_errors/
 ├── agent_based/
 │   └── smart_errors.py
 ├── checkman/
 │   └── smart_errors         # Plugin documentation
 ├── graphing/
 │   └── smart_errors.py
-├── rulesets/
-│   └── smart_errors.py
-└── server_side_calls/
-    ├── smart_errors.py      # Bakery configuration
-    └── smart_errors         # Agent plugin script
+└── rulesets/
+    ├── smart_errors.py      # Check parameter rules
+    └── ruleset_smart_errors_bakery.py  # Bakery configuration rules
+
+~/local/lib/check_mk/base/cee/plugins/bakery/
+└── smart_errors.py          # Bakery plugin logic
+
+~/local/share/check_mk/agents/plugins/
+└── smart_errors             # Agent plugin script
 ```
 
 ### 2. Agent Plugin Deployment
 
-The agent plugin is located in the `smart_errors/server_side_calls/` directory alongside the bakery configuration.
+The agent plugin is located in the `local/share/check_mk/agents/plugins/` directory.
 
 ```bash
 # For manual deployment
-cp smart_errors/server_side_calls/smart_errors /usr/lib/check_mk_agent/plugins/
+cp local/share/check_mk/agents/plugins/smart_errors /usr/lib/check_mk_agent/plugins/
 chmod +x /usr/lib/check_mk_agent/plugins/smart_errors
 
 # For Agent Bakery deployment (recommended)
-# The bakery will automatically read and deploy the plugin
+# The bakery will automatically read and deploy the plugin from local/share/check_mk/agents/plugins/
 ```
 
 ### 3. Restart CheckMK
@@ -85,7 +89,7 @@ omd restart
 If not using Agent Bakery, manually copy the agent plugin to target hosts:
 
 ```bash
-scp agents/plugins/smart_errors root@target-host:/usr/lib/check_mk_agent/plugins/
+scp local/share/check_mk/agents/plugins/smart_errors root@target-host:/usr/lib/check_mk_agent/plugins/
 ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/smart_errors
 ```
 
@@ -176,7 +180,7 @@ Test the agent plugin directly on target hosts:
 check_mk_agent | grep -A 10 "<<<smart_errors>>>"
 
 # Test the plugin before deployment
-python3 smart_errors/server_side_calls/smart_errors
+python3 local/share/check_mk/agents/plugins/smart_errors
 ```
 
 ### Checking CheckMK Logs

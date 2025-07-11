@@ -7,19 +7,32 @@ Compatible with CheckMK 2.3
 """
 
 import json
+import os
 import subprocess
-import sys
 from typing import Dict, List, Optional
 
+CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "smart_errors.json")
 
-def get_smart_devices() -> List[Dict]:
+def get_timeout() -> int:
+    """Read timeout from config file, return default if not found."""
+    if not os.path.exists(CONFIG_FILE):
+        return 30
+    try:
+        with open(CONFIG_FILE, 'r') as f:
+            config = json.load(f)
+        return config.get("timeout", 30)
+    except (json.JSONDecodeError, IOError):
+        return 30
+
+
+def get_smart_devices(timeout: int) -> List[Dict]:
     """Get list of SMART-capable devices"""
     try:
         result = subprocess.run(
             ['smartctl', '--json', '--scan'],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=timeout
         )
         if result.returncode != 0:
             return []
@@ -30,14 +43,14 @@ def get_smart_devices() -> List[Dict]:
         return []
 
 
-def get_smart_info_and_errors(device_name: str) -> Optional[Dict]:
+def get_smart_info_and_errors(device_name: str, timeout: int) -> Optional[Dict]:
     """Get SMART device info and error log for a specific device"""
     try:
         result = subprocess.run(
             ['smartctl', '--json=c', '--info', '--log=error', device_name],
             capture_output=True,
             text=True,
-            timeout=30
+            timeout=timeout
         )
         if result.returncode not in [0, 1, 2, 4]:  # Allow some non-zero codes
             return None
@@ -50,21 +63,21 @@ def get_smart_info_and_errors(device_name: str) -> Optional[Dict]:
 
 def main():
     """Main function to collect and output SMART error data"""
-    devices = get_smart_devices()
+    timeout = get_timeout()
+    devices = get_smart_devices(timeout)
     
     if not devices:
         # No SMART devices found - don't output section at all
         return
-    
+
     print("<<<smart_errors:sep(124)>>>")
-    valid_devices_found = False
-    
+
     for device in devices:
         device_name = device.get('name', '')
         if not device_name:
             continue
             
-        smart_data = get_smart_info_and_errors(device_name)
+        smart_data = get_smart_info_and_errors(device_name, timeout)
         if smart_data is None:
             print(f"{device_name}|ERROR|Failed to get SMART data")
             continue
@@ -110,7 +123,6 @@ def main():
         }
         
         print(f"{device_name}|{json.dumps(output_data, separators=(',', ':'))}")
-        valid_devices_found = True
 
 
 if __name__ == "__main__":

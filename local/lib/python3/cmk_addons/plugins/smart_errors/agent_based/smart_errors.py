@@ -79,23 +79,39 @@ def discover_smart_errors(section: Section) -> DiscoveryResult:
     """Discover SMART error services"""
     for device_name, data in section.items():
         if "error" not in data:
-            yield Service(item=device_name)
+            # Always create service item with device name and serial number for unique identification
+            serial = data.get("serial", "")
+            if serial:
+                # Use last 8 chars of serial for uniqueness
+                serial_short = serial[-8:] if len(serial) > 8 else serial
+                service_item = f"{device_name} ({serial_short})"
+            else:
+                # Fallback to device name with "no-serial" if no serial available
+                service_item = f"{device_name} (no-serial)"
+            yield Service(item=service_item)
 
 
 def check_smart_errors(item: str, params: Mapping[str, Any], section: Section) -> CheckResult:
     """Check SMART error counters and generate metrics"""
-    if item not in section:
-        yield Result(state=State.UNKNOWN, summary=f"Device {item} not found")
+    # Extract device name from service item format: "/dev/sda (serial)"
+    if " (" in item and item.endswith(")"):
+        device_name = item.split(" (")[0].strip()
+    else:
+        # Should not happen with current discovery logic, but handle gracefully
+        device_name = item.strip()
+    
+    if device_name not in section:
+        yield Result(state=State.UNKNOWN, summary=f"Device {device_name} not found")
         return
     
-    data = section[item]
+    data = section[device_name]
     
     if "error" in data:
         yield Result(state=State.CRIT, summary=f"Error: {data['error']}")
         return
     
     error_counters = data.get("error_counters", {})
-    device_info = data.get("device", item)
+    device_info = data.get("device", device_name)
     protocol = data.get("protocol", "unknown")
     model = data.get("model", "")
     serial = data.get("serial", "")

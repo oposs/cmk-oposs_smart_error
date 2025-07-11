@@ -1,9 +1,7 @@
 /*
-!/smart_errors
-!/README.md
-!/CHANGELOG.md
+!/local
 !/LICENSE
-!/CLAUDE.md
+!/*.md
 !/.gitignore
 *~
 *.swp
