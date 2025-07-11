@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the CheckMK SMART Error Monitoring Plugin will be documented in this file.
+All notable changes to the CheckMK OPOSS SMART Error Monitoring Plugin will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial release of CheckMK SMART Error Monitoring Plugin
+- Initial release of CheckMK OPOSS SMART Error Monitoring Plugin
 - Operation-specific threshold configuration for read/write/verify operations
 - Comprehensive SMART error counter monitoring with 16 configurable parameters
 - Support for CheckMK 2.3+ with cmk.agent_based.v2 API

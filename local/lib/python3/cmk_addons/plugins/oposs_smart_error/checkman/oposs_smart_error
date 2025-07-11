@@ -8,9 +8,9 @@ description:
  SCSI error counter logs. It tracks detailed error statistics including
  corrected and uncorrected errors across read, write, and verify operations.
 
- The check provides both absolute error counts and normalized error rates
- per terabyte of data processed, allowing for comprehensive storage health
- monitoring and trend analysis.
+ The check reports individual error types only when they occur (> 0), 
+ providing clean and focused monitoring output. Each error type is 
+ evaluated against configurable thresholds with separate states.
 
  This check requires the {smartmontools} package to be installed on the
  monitored host. The agent plugin uses {smartctl} to collect error counter
@@ -23,8 +23,11 @@ description:
 
  Each operation type (read, write, verify) generates detailed metrics:
  errors corrected by ECC fast/delayed, errors corrected by rereads/rewrites,
- total corrected errors, correction algorithm invocations, bytes processed,
- and total uncorrected errors.
+ correction algorithm invocations, bytes processed, and total uncorrected errors.
+ 
+ The service output shows individual error types (e.g., "Read ECC fast: 5") 
+ with their own states based on configured thresholds, plus data processed 
+ per operation type.
 
 item:
  The device path (e.g. {/dev/sda})

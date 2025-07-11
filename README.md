@@ -1,4 +1,4 @@
-# CheckMK SMART Error Monitoring Plugin
+# CheckMK OPOSS SMART Error Monitoring Plugin
 
 A comprehensive CheckMK plugin for monitoring SMART error counters on storage devices. This plugin collects detailed error statistics from drives and provides threshold-based alerting and graphing.
 
@@ -28,27 +28,27 @@ Copy the plugin files to your CheckMK site:
 cd ~/local/lib/python3/cmk_addons/plugins/
 
 # Copy the plugin components
-cp -r /path/to/smart_errors ./
+cp -r /path/to/oposs_smart_error ./
 ```
 
 The directory structure should look like:
 ```
-~/local/lib/python3/cmk_addons/plugins/smart_errors/
+~/local/lib/python3/cmk_addons/plugins/oposs_smart_error/
 ├── agent_based/
-│   └── smart_errors.py
+│   └── oposs_smart_error.py
 ├── checkman/
-│   └── smart_errors         # Plugin documentation
+│   └── oposs_smart_error         # Plugin documentation
 ├── graphing/
-│   └── smart_errors.py
+│   └── oposs_smart_error.py
 └── rulesets/
-    ├── smart_errors.py      # Check parameter rules
-    └── ruleset_smart_errors_bakery.py  # Bakery configuration rules
+    ├── oposs_smart_error.py      # Check parameter rules
+    └── ruleset_oposs_smart_error_bakery.py  # Bakery configuration rules
 
-~/local/lib/check_mk/base/cee/plugins/bakery/
-└── smart_errors.py          # Bakery plugin logic
+~/local/lib/python3/cmk/base/cee/plugins/bakery/
+└── oposs_smart_error.py          # Bakery plugin logic
 
 ~/local/share/check_mk/agents/plugins/
-└── smart_errors             # Agent plugin script
+└── oposs_smart_error             # Agent plugin script
 ```
 
 ### 2. Agent Plugin Deployment
@@ -57,8 +57,8 @@ The agent plugin is located in the `local/share/check_mk/agents/plugins/` direct
 
 ```bash
 # For manual deployment
-cp local/share/check_mk/agents/plugins/smart_errors /usr/lib/check_mk_agent/plugins/
-chmod +x /usr/lib/check_mk_agent/plugins/smart_errors
+cp local/share/check_mk/agents/plugins/oposs_smart_error /usr/lib/check_mk_agent/plugins/
+chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
 
 # For Agent Bakery deployment (recommended)
 # The bakery will automatically read and deploy the plugin from local/share/check_mk/agents/plugins/
@@ -76,7 +76,7 @@ omd restart
 ### Using Agent Bakery (Recommended)
 
 1. Go to **Setup > Agents > Agent rules**
-2. Create a new rule for **SMART Error Monitoring (Linux)**
+2. Create a new rule for **OPOSS SMART Error Monitoring (Linux)**
 3. Configure options:
    - **Enable**: Enable/disable monitoring
    - **Timeout**: Command timeout in seconds (default: 30)
@@ -89,8 +89,8 @@ omd restart
 If not using Agent Bakery, manually copy the agent plugin to target hosts:
 
 ```bash
-scp local/share/check_mk/agents/plugins/smart_errors root@target-host:/usr/lib/check_mk_agent/plugins/
-ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/smart_errors
+scp local/share/check_mk/agents/plugins/oposs_smart_error root@target-host:/usr/lib/check_mk_agent/plugins/
+ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
 ```
 
 ### Service Discovery
@@ -103,7 +103,7 @@ ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/smart_errors
 ### Threshold Configuration
 
 1. Go to **Setup > Services > Service monitoring rules**
-2. Create a new rule for **SMART Error Monitoring**
+2. Create a new rule for **OPOSS SMART Error Monitoring**
 3. Configure thresholds for specific error counter types:
    - **Uncorrected Errors (Absolute)**: Warning/Critical for uncorrected errors (default: 1, 10)
    - **ECC Fast Corrected Errors (Absolute)**: Warning/Critical for fast ECC corrections (default: 10000, 100000)
@@ -121,7 +121,7 @@ Each monitored drive will show:
 - Amount of data processed
 - Current service state based on configured thresholds
 
-The service name format is "SMART Errors <device_path>", for example "SMART Errors /dev/sda".
+The service name format is "OPOSS SMART Errors <device_path>", for example "OPOSS SMART Errors /dev/sda".
 
 Example service output:
 ```
@@ -160,7 +160,7 @@ Check that:
 - `smartctl` is installed on the target host
 - Drives support SCSI error counter logs
 - Agent plugin is executable and in the correct location
-- Plugin produces output: `/usr/lib/check_mk_agent/plugins/smart_errors`
+- Plugin produces output: `/usr/lib/check_mk_agent/plugins/oposs_smart_error`
 
 ### Error Messages
 
@@ -174,13 +174,13 @@ Test the agent plugin directly on target hosts:
 
 ```bash
 # Run the plugin manually
-/usr/lib/check_mk_agent/plugins/smart_errors
+/usr/lib/check_mk_agent/plugins/oposs_smart_error
 
 # Check for output
-check_mk_agent | grep -A 10 "<<<smart_errors>>>"
+check_mk_agent | grep -A 10 "<<<oposs_smart_error>>>"
 
 # Test the plugin before deployment
-python3 local/share/check_mk/agents/plugins/smart_errors
+python3 local/share/check_mk/agents/plugins/oposs_smart_error
 ```
 
 ### Checking CheckMK Logs

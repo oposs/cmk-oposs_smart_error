@@ -16,13 +16,13 @@ CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "smart
 def get_timeout() -> int:
     """Read timeout from config file, return default if not found."""
     if not os.path.exists(CONFIG_FILE):
-        return 30
+        return 5
     try:
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
-        return config.get("timeout", 30)
+        return config.get("timeout", 5)
     except (json.JSONDecodeError, IOError):
-        return 30
+        return 5
 
 
 def get_smart_devices(timeout: int) -> List[Dict]:
@@ -70,7 +70,7 @@ def main():
         # No SMART devices found - don't output section at all
         return
 
-    print("<<<smart_errors:sep(124)>>>")
+    print("<<<oposs_smart_error:sep(124)>>>")
 
     for device in devices:
         device_name = device.get('name', '')

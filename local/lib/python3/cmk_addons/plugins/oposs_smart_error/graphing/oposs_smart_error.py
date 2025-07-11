@@ -148,11 +148,6 @@ metric_info["read_correction_algorithm_invocations_per_tb"] = {
     "color": "14/b",  # Purple variant
 }
 
-metric_info["read_total_uncorrected_errors_per_tb"] = {
-    "title": _("Read Total Uncorrected Errors per TB"),
-    "unit": "count",
-    "color": "16/b",  # Red variant
-}
 
 # Detailed rate metrics for WRITE operations (per TB)
 metric_info["write_errors_corrected_by_eccfast_per_tb"] = {
@@ -179,11 +174,6 @@ metric_info["write_correction_algorithm_invocations_per_tb"] = {
     "color": "24/b",  # Light Purple variant
 }
 
-metric_info["write_total_uncorrected_errors_per_tb"] = {
-    "title": _("Write Total Uncorrected Errors per TB"),
-    "unit": "count",
-    "color": "26/b",  # Light Red variant
-}
 
 # Detailed rate metrics for VERIFY operations (per TB)
 metric_info["verify_errors_corrected_by_eccfast_per_tb"] = {
@@ -210,23 +200,12 @@ metric_info["verify_correction_algorithm_invocations_per_tb"] = {
     "color": "34/b",  # Dark Purple variant
 }
 
-metric_info["verify_total_uncorrected_errors_per_tb"] = {
-    "title": _("Verify Total Uncorrected Errors per TB"),
-    "unit": "count",
-    "color": "36/b",  # Dark Red variant
-}
 
-# Total metrics - only bytes processed (error totals are redundant)
-metric_info["total_bytes_processed"] = {
-    "title": _("Total Bytes Processed"),
-    "unit": "bytes",
-    "color": "11/c",
-}
 
 # Graph definitions - 6 combined graphs with detailed metrics
 
 # 1. Read Operation - Absolute Values (5 lines)
-graph_info["smart_errors_read_absolute"] = {
+graph_info["oposs_smart_error_read_absolute"] = {
     "title": _("SMART Read Operations - Error Counts"),
     "metrics": [
         ("read_errors_corrected_by_eccfast", "line"),
@@ -238,7 +217,7 @@ graph_info["smart_errors_read_absolute"] = {
 }
 
 # 2. Write Operation - Absolute Values (5 lines)
-graph_info["smart_errors_write_absolute"] = {
+graph_info["oposs_smart_error_write_absolute"] = {
     "title": _("SMART Write Operations - Error Counts"),
     "metrics": [
         ("write_errors_corrected_by_eccfast", "line"),
@@ -250,7 +229,7 @@ graph_info["smart_errors_write_absolute"] = {
 }
 
 # 3. Verify Operation - Absolute Values (5 lines)
-graph_info["smart_errors_verify_absolute"] = {
+graph_info["oposs_smart_error_verify_absolute"] = {
     "title": _("SMART Verify Operations - Error Counts"),
     "metrics": [
         ("verify_errors_corrected_by_eccfast", "line"),
@@ -262,43 +241,40 @@ graph_info["smart_errors_verify_absolute"] = {
 }
 
 # 4. Read Operation - Relative Values per TB (4 lines)
-graph_info["smart_errors_read_relative"] = {
+graph_info["oposs_smart_error_read_relative"] = {
     "title": _("SMART Read Operations - Relative Values (per TB)"),
     "metrics": [
         ("read_errors_corrected_by_eccfast_per_tb", "line"),
         ("read_errors_corrected_by_eccdelayed_per_tb", "line"),
         ("read_errors_corrected_by_rereads_rewrites_per_tb", "line"),
         ("read_correction_algorithm_invocations_per_tb", "line"),
-        ("read_total_uncorrected_errors_per_tb", "line"),
     ],
 }
 
-# 5. Write Operation - Relative Values per TB (5 lines)
-graph_info["smart_errors_write_relative"] = {
+# 5. Write Operation - Relative Values per TB (4 lines)
+graph_info["oposs_smart_error_write_relative"] = {
     "title": _("SMART Write Operations - Relative Values (per TB)"),
     "metrics": [
         ("write_errors_corrected_by_eccfast_per_tb", "line"),
         ("write_errors_corrected_by_eccdelayed_per_tb", "line"),
         ("write_errors_corrected_by_rereads_rewrites_per_tb", "line"),
         ("write_correction_algorithm_invocations_per_tb", "line"),
-        ("write_total_uncorrected_errors_per_tb", "line"),
     ],
 }
 
-# 6. Verify Operation - Relative Values per TB (5 lines)
-graph_info["smart_errors_verify_relative"] = {
+# 6. Verify Operation - Relative Values per TB (4 lines)
+graph_info["oposs_smart_error_verify_relative"] = {
     "title": _("SMART Verify Operations - Relative Values (per TB)"),
     "metrics": [
         ("verify_errors_corrected_by_eccfast_per_tb", "line"),
         ("verify_errors_corrected_by_eccdelayed_per_tb", "line"),
         ("verify_errors_corrected_by_rereads_rewrites_per_tb", "line"),
         ("verify_correction_algorithm_invocations_per_tb", "line"),
-        ("verify_total_uncorrected_errors_per_tb", "line"),
     ],
 }
 
 # Bytes processed stacked graph - shows cumulative storage activity
-graph_info["smart_errors_bytes_processed"] = {
+graph_info["oposs_smart_error_bytes_processed"] = {
     "title": _("SMART Operations - Bytes Processed"),
     "metrics": [
         ("read_bytes_processed", "stack"),

@@ -17,8 +17,8 @@ from cmk.base.plugins.bakery.bakery_api.v1 import (
 )
 
 
-def get_smart_errors_files(conf: Dict[str, Any]):
-    """Files function for SMART errors bakery plugin"""
+def get_oposs_smart_error_files(conf: Dict[str, Any]):
+    """Files function for OPOSS SMART error bakery plugin"""
     if conf is None or not conf.get("enabled", True):
         return
     
@@ -30,7 +30,7 @@ def get_smart_errors_files(conf: Dict[str, Any]):
     config_content = json.dumps({"timeout": int(timeout)})
     yield PluginConfig(
         base_os=OS.LINUX,
-        target=Path("smart_errors.json"),
+        target=Path("oposs_smart_error.json"),
         lines=config_content.splitlines(),
     )
 
@@ -38,14 +38,14 @@ def get_smart_errors_files(conf: Dict[str, Any]):
     # This will automatically find the agent plugin in local/share/check_mk/agents/plugins/
     yield Plugin(
         base_os=OS.LINUX,
-        source=Path('smart_errors'),
-        target=Path('smart_errors'),
+        source=Path('oposs_smart_error'),
+        target=Path('oposs_smart_error'),
         interval=interval,
     )
 
 
 # Register the bakery plugin using the official API
 register.bakery_plugin(
-    name="smart_errors",
-    files_function=get_smart_errors_files,
+    name="oposs_smart_error",
+    files_function=get_oposs_smart_error_files,
 )

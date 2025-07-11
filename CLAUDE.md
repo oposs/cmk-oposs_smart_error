@@ -1,21 +1,21 @@
 # CLAUDE.md - Development Notes
 
 ## Project Overview
-CheckMK SMART Error Monitoring Plugin for CheckMK 2.3 - monitors SCSI error counter logs from storage devices.
+CheckMK OPOSS SMART Error Monitoring Plugin for CheckMK 2.3 - monitors SCSI error counter logs from storage devices.
 
 ## Architecture
 
 ### Components
-- **Agent Plugin**: `local/share/check_mk/agents/plugins/smart_errors` - Python script that runs on monitored hosts
-- **Check Plugin**: `local/lib/python3/cmk_addons/plugins/smart_errors/agent_based/smart_errors.py` - Server-side processing using cmk.agent_based.v2
-- **Documentation**: `local/lib/python3/cmk_addons/plugins/smart_errors/checkman/smart_errors` - CheckMK plugin documentation
-- **Rulesets**: `local/lib/python3/cmk_addons/plugins/smart_errors/rulesets/smart_errors.py` - GUI configuration for thresholds
-- **Graphing**: `local/lib/python3/cmk_addons/plugins/smart_errors/graphing/smart_errors.py` - Metrics and graph definitions
-- **Bakery**: `local/lib/check_mk/base/cee/plugins/bakery/smart_errors.py` - Automatic agent deployment
+- **Agent Plugin**: `local/share/check_mk/agents/plugins/oposs_smart_error` - Python script that runs on monitored hosts
+- **Check Plugin**: `local/lib/python3/cmk_addons/plugins/oposs_smart_error/agent_based/oposs_smart_error.py` - Server-side processing using cmk.agent_based.v2
+- **Documentation**: `local/lib/python3/cmk_addons/plugins/oposs_smart_error/checkman/oposs_smart_error` - CheckMK plugin documentation
+- **Rulesets**: `local/lib/python3/cmk_addons/plugins/oposs_smart_error/rulesets/oposs_smart_error.py` - GUI configuration for thresholds
+- **Graphing**: `local/lib/python3/cmk_addons/plugins/oposs_smart_error/graphing/oposs_smart_error.py` - Metrics and graph definitions
+- **Bakery**: `local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py` - Automatic agent deployment
 
 ### Data Flow
 1. Agent plugin runs `smartctl` commands to collect SMART data
-2. Outputs structured data with section header `<<<smart_errors:sep(124)>>>`
+2. Outputs structured data with section header `<<<oposs_smart_error:sep(124)>>>`
 3. Check plugin parses data and generates metrics/service states
 4. Graphing component visualizes metrics over time
 
@@ -38,9 +38,9 @@ from cmk.agent_based.v2 import (
 ```
 
 ### Key Functions
-- `parse_smart_errors()`: Parses agent output into structured data
-- `discover_smart_errors()`: Creates services for drives with error logs
-- `check_smart_errors()`: Evaluates thresholds and generates metrics
+- `parse_oposs_smart_error()`: Parses agent output into structured data
+- `discover_oposs_smart_error()`: Creates services for drives with error logs
+- `check_oposs_smart_error()`: Evaluates thresholds and generates metrics
 
 ### Rulesets (CheckMK 2.3 GUI API)
 ```python
@@ -84,7 +84,7 @@ from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
 - Provides meaningful error messages
 
 ### Bakery Integration
-- Reads agent plugin source file from same directory (server_side_calls/smart_errors)
+- Reads agent plugin source file from same directory (server_side_calls/oposs_smart_error)
 - Can modify timeout parameters based on configuration
 - Supports interval configuration for scheduled execution
 - Falls back to minimal plugin if source not found
@@ -94,22 +94,22 @@ from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
 ### Test Agent Plugin
 ```bash
 # Test locally before deployment
-python3 local/share/check_mk/agents/plugins/smart_errors
+python3 local/share/check_mk/agents/plugins/oposs_smart_error
 
 # Test on target host after deployment
-/usr/lib/check_mk_agent/plugins/smart_errors
-check_mk_agent | grep -A 10 "<<<smart_errors>>>"
+/usr/lib/check_mk_agent/plugins/oposs_smart_error
+check_mk_agent | grep -A 10 "<<<oposs_smart_error>>>"
 ```
 
 ### Test Check Plugin
 ```bash
 cmk -v --detect-plugins hostname
-cmk -v --debug --checks=smart_errors hostname
+cmk -v --debug --checks=oposs_smart_error hostname
 ```
 
 ### Validate Plugin Syntax
 ```bash
-python3 -m py_compile local/lib/python3/cmk_addons/plugins/smart_errors/agent_based/smart_errors.py
+python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/agent_based/oposs_smart_error.py
 ```
 
 ## Configuration Parameters
@@ -131,24 +131,24 @@ python3 -m py_compile local/lib/python3/cmk_addons/plugins/smart_errors/agent_ba
 
 ### CheckMK Site Structure
 ```
-~/local/lib/python3/cmk_addons/plugins/smart_errors/
-├── agent_based/smart_errors.py
-├── checkman/smart_errors        # Plugin documentation
-├── graphing/smart_errors.py  
+~/local/lib/python3/cmk_addons/plugins/oposs_smart_error/
+├── agent_based/oposs_smart_error.py
+├── checkman/oposs_smart_error        # Plugin documentation
+├── graphing/oposs_smart_error.py  
 └── rulesets/
-    ├── smart_errors.py          # Check parameter rules
-    └── ruleset_smart_errors_bakery.py  # Bakery configuration rules
+    ├── oposs_smart_error.py          # Check parameter rules
+    └── ruleset_oposs_smart_error_bakery.py  # Bakery configuration rules
 
-~/local/lib/check_mk/base/cee/plugins/bakery/
-└── smart_errors.py              # Bakery plugin logic
+~/local/lib/python3/cmk/base/cee/plugins/bakery/
+└── oposs_smart_error.py              # Bakery plugin logic
 
 ~/local/share/check_mk/agents/plugins/
-└── smart_errors                 # Agent plugin script
+└── oposs_smart_error                 # Agent plugin script
 ```
 
 ### Agent Plugin Location
 ```
-/usr/lib/check_mk_agent/plugins/smart_errors
+/usr/lib/check_mk_agent/plugins/oposs_smart_error
 ```
 
 ## Development Notes
@@ -156,12 +156,12 @@ python3 -m py_compile local/lib/python3/cmk_addons/plugins/smart_errors/agent_ba
 ### CheckMK 2.3 vs 2.4 Changes
 - Removed all CheckMK 2.4 compatibility code (cmk.rulesets.v1, cmk.server_side_calls.v1)
 - Using only CheckMK 2.3 APIs throughout
-- Bakery uses function-based approach (`agent_config_smart_errors`)
+- Bakery uses function-based approach (`agent_config_oposs_smart_error`)
 
 ### API Entry Points
 CheckMK 2.3 uses discovery-based plugin registration:
-- `agent_section_smart_errors`: AgentSection object
-- `check_plugin_smart_errors`: CheckPlugin object
+- `agent_section_oposs_smart_error`: AgentSection object
+- `check_plugin_oposs_smart_error`: CheckPlugin object
 - Function names starting with these prefixes are auto-discovered
 
 ### Error States Logic

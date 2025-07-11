@@ -19,7 +19,7 @@ from cmk.gui.valuespec import (
 from cmk.gui.wato import RulespecGroupCheckParametersStorage
 
 
-def _parameter_valuespec_smart_errors():
+def _parameter_valuespec_oposs_smart_error():
     """Value specification for SMART error thresholds"""
     return Dictionary(
         title=_("SMART Error Counter Thresholds"),
@@ -182,27 +182,16 @@ def _parameter_valuespec_smart_errors():
              )
             ),
             
-            # Rate-based thresholds
-            ("uncorrected_errors_per_tb",
-             Tuple(
-                 title=_("Any Operation: Uncorrected Errors per TB"),
-                 help=_("Thresholds for uncorrected error rate per terabyte processed (any operation)"),
-                 elements=[
-                     Float(title=_("Warning at"), default_value=0.1),
-                     Float(title=_("Critical at"), default_value=1.0),
-                 ],
-             )
-            ),
         ]
     )
 
 
 rulespec_registry.register(
     CheckParameterRulespecWithoutItem(
-        check_group_name="smart_errors",
+        check_group_name="oposs_smart_error",
         group=RulespecGroupCheckParametersStorage,
         match_type="dict",
-        parameter_valuespec=_parameter_valuespec_smart_errors,
+        parameter_valuespec=_parameter_valuespec_oposs_smart_error,
         title=lambda: _("SMART Error Monitoring"),
     )
 )
