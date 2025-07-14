@@ -5,291 +5,378 @@ Defines 6 combined graphs showing absolute and relative error metrics
 Compatible with CheckMK 2.3
 """
 
-from cmk.gui.i18n import _
-from cmk.gui.plugins.metrics import (
-    graph_info,
-    metric_info,
-    perfometer_info,
+
+from cmk.graphing.v1 import Title
+from cmk.graphing.v1.metrics import (
+    Color,
+    DecimalNotation,
+    IECNotation,
+    Metric,
+    Unit,
+)
+from cmk.graphing.v1.graphs import (
+    Graph,
+    MinimalRange,
+)
+from cmk.graphing.v1.perfometers import (
+    Perfometer,
+    FocusRange,
+    Closed,
 )
 
+# Define units
+unit_count = Unit(DecimalNotation(""))
+unit_bytes = Unit(IECNotation("B"))
+
 # Detailed metric definitions for READ operations
-metric_info["read_errors_corrected_by_eccfast"] = {
-    "title": _("Read Errors Corrected by ECC Fast"),
-    "unit": "count",
-    "color": "11/a",  # Blue
-}
+metric_read_errors_corrected_by_eccfast = Metric(
+    name="read_errors_corrected_by_eccfast",
+    title=Title("Read Errors Corrected by ECC Fast"),
+    unit=unit_count,
+    color=Color.BLUE,
+)
 
-metric_info["read_errors_corrected_by_eccdelayed"] = {
-    "title": _("Read Errors Corrected by ECC Delayed"),
-    "unit": "count",
-    "color": "12/a",  # Green
-}
+metric_read_errors_corrected_by_eccdelayed = Metric(
+    name="read_errors_corrected_by_eccdelayed",
+    title=Title("Read Errors Corrected by ECC Delayed"),
+    unit=unit_count,
+    color=Color.GREEN,
+)
 
-metric_info["read_errors_corrected_by_rereads_rewrites"] = {
-    "title": _("Read Errors Corrected by Rereads/Rewrites"),
-    "unit": "count",
-    "color": "13/a",  # Orange
-}
+metric_read_errors_corrected_by_rereads_rewrites = Metric(
+    name="read_errors_corrected_by_rereads_rewrites",
+    title=Title("Read Errors Corrected by Rereads/Rewrites"),
+    unit=unit_count,
+    color=Color.ORANGE,
+)
 
-metric_info["read_correction_algorithm_invocations"] = {
-    "title": _("Read Correction Algorithm Invocations"),
-    "unit": "count",
-    "color": "14/a",  # Purple
-}
+metric_read_correction_algorithm_invocations = Metric(
+    name="read_correction_algorithm_invocations",
+    title=Title("Read Correction Algorithm Invocations"),
+    unit=unit_count,
+    color=Color.PURPLE,
+)
 
-metric_info["read_bytes_processed"] = {
-    "title": _("Read Bytes Processed"),
-    "unit": "bytes",
-    "color": "15/a",  # Yellow
-}
+metric_read_bytes_processed = Metric(
+    name="read_bytes_processed",
+    title=Title("Read Bytes Processed"),
+    unit=unit_bytes,
+    color=Color.BLUE,
+)
 
-metric_info["read_total_uncorrected_errors"] = {
-    "title": _("Read Total Uncorrected Errors"),
-    "unit": "count",
-    "color": "16/a",  # Red
-}
+metric_read_total_uncorrected_errors = Metric(
+    name="read_total_uncorrected_errors",
+    title=Title("Read Total Uncorrected Errors"),
+    unit=unit_count,
+    color=Color.RED,
+)
 
 # Detailed metric definitions for WRITE operations
-metric_info["write_errors_corrected_by_eccfast"] = {
-    "title": _("Write Errors Corrected by ECC Fast"),
-    "unit": "count",
-    "color": "21/a",  # Light Blue
-}
+metric_write_errors_corrected_by_eccfast = Metric(
+    name="write_errors_corrected_by_eccfast",
+    title=Title("Write Errors Corrected by ECC Fast"),
+    unit=unit_count,
+    color=Color.LIGHT_BLUE,
+)
 
-metric_info["write_errors_corrected_by_eccdelayed"] = {
-    "title": _("Write Errors Corrected by ECC Delayed"),
-    "unit": "count",
-    "color": "22/a",  # Light Green
-}
+metric_write_errors_corrected_by_eccdelayed = Metric(
+    name="write_errors_corrected_by_eccdelayed",
+    title=Title("Write Errors Corrected by ECC Delayed"),
+    unit=unit_count,
+    color=Color.LIGHT_GREEN,
+)
 
-metric_info["write_errors_corrected_by_rereads_rewrites"] = {
-    "title": _("Write Errors Corrected by Rereads/Rewrites"),
-    "unit": "count",
-    "color": "23/a",  # Light Orange
-}
+metric_write_errors_corrected_by_rereads_rewrites = Metric(
+    name="write_errors_corrected_by_rereads_rewrites",
+    title=Title("Write Errors Corrected by Rereads/Rewrites"),
+    unit=unit_count,
+    color=Color.LIGHT_ORANGE,
+)
 
-metric_info["write_correction_algorithm_invocations"] = {
-    "title": _("Write Correction Algorithm Invocations"),
-    "unit": "count",
-    "color": "24/a",  # Light Purple
-}
+metric_write_correction_algorithm_invocations = Metric(
+    name="write_correction_algorithm_invocations",
+    title=Title("Write Correction Algorithm Invocations"),
+    unit=unit_count,
+    color=Color.LIGHT_PURPLE,
+)
 
-metric_info["write_bytes_processed"] = {
-    "title": _("Write Bytes Processed"),
-    "unit": "bytes",
-    "color": "25/a",  # Light Yellow
-}
+metric_write_bytes_processed = Metric(
+    name="write_bytes_processed",
+    title=Title("Write Bytes Processed"),
+    unit=unit_bytes,
+    color=Color.GREEN,
+)
 
-metric_info["write_total_uncorrected_errors"] = {
-    "title": _("Write Total Uncorrected Errors"),
-    "unit": "count",
-    "color": "26/a",  # Light Red
-}
+metric_write_total_uncorrected_errors = Metric(
+    name="write_total_uncorrected_errors",
+    title=Title("Write Total Uncorrected Errors"),
+    unit=unit_count,
+    color=Color.LIGHT_RED,
+)
 
 # Detailed metric definitions for VERIFY operations
-metric_info["verify_errors_corrected_by_eccfast"] = {
-    "title": _("Verify Errors Corrected by ECC Fast"),
-    "unit": "count",
-    "color": "31/a",  # Dark Blue
-}
+metric_verify_errors_corrected_by_eccfast = Metric(
+    name="verify_errors_corrected_by_eccfast",
+    title=Title("Verify Errors Corrected by ECC Fast"),
+    unit=unit_count,
+    color=Color.DARK_BLUE,
+)
 
-metric_info["verify_errors_corrected_by_eccdelayed"] = {
-    "title": _("Verify Errors Corrected by ECC Delayed"),
-    "unit": "count",
-    "color": "32/a",  # Dark Green
-}
+metric_verify_errors_corrected_by_eccdelayed = Metric(
+    name="verify_errors_corrected_by_eccdelayed",
+    title=Title("Verify Errors Corrected by ECC Delayed"),
+    unit=unit_count,
+    color=Color.DARK_GREEN,
+)
 
-metric_info["verify_errors_corrected_by_rereads_rewrites"] = {
-    "title": _("Verify Errors Corrected by Rereads/Rewrites"),
-    "unit": "count",
-    "color": "33/a",  # Dark Orange
-}
+metric_verify_errors_corrected_by_rereads_rewrites = Metric(
+    name="verify_errors_corrected_by_rereads_rewrites",
+    title=Title("Verify Errors Corrected by Rereads/Rewrites"),
+    unit=unit_count,
+    color=Color.DARK_ORANGE,
+)
 
-metric_info["verify_correction_algorithm_invocations"] = {
-    "title": _("Verify Correction Algorithm Invocations"),
-    "unit": "count",
-    "color": "34/a",  # Dark Purple
-}
+metric_verify_correction_algorithm_invocations = Metric(
+    name="verify_correction_algorithm_invocations",
+    title=Title("Verify Correction Algorithm Invocations"),
+    unit=unit_count,
+    color=Color.DARK_PURPLE,
+)
 
-metric_info["verify_bytes_processed"] = {
-    "title": _("Verify Bytes Processed"),
-    "unit": "bytes",
-    "color": "35/a",  # Dark Yellow
-}
+metric_verify_bytes_processed = Metric(
+    name="verify_bytes_processed",
+    title=Title("Verify Bytes Processed"),
+    unit=unit_bytes,
+    color=Color.ORANGE,
+)
 
-metric_info["verify_total_uncorrected_errors"] = {
-    "title": _("Verify Total Uncorrected Errors"),
-    "unit": "count",
-    "color": "36/a",  # Dark Red
-}
+metric_verify_total_uncorrected_errors = Metric(
+    name="verify_total_uncorrected_errors",
+    title=Title("Verify Total Uncorrected Errors"),
+    unit=unit_count,
+    color=Color.DARK_RED,
+)
 
 # Detailed rate metrics for READ operations (per TB)
-metric_info["read_errors_corrected_by_eccfast_per_tb"] = {
-    "title": _("Read ECC Fast Errors per TB"),
-    "unit": "count",
-    "color": "11/b",  # Blue variant
-}
+metric_read_errors_corrected_by_eccfast_per_tb = Metric(
+    name="read_errors_corrected_by_eccfast_per_tb",
+    title=Title("Read ECC Fast Errors per TB"),
+    unit=unit_count,
+    color=Color.CYAN,
+)
 
-metric_info["read_errors_corrected_by_eccdelayed_per_tb"] = {
-    "title": _("Read ECC Delayed Errors per TB"),
-    "unit": "count",
-    "color": "12/b",  # Green variant
-}
+metric_read_errors_corrected_by_eccdelayed_per_tb = Metric(
+    name="read_errors_corrected_by_eccdelayed_per_tb",
+    title=Title("Read ECC Delayed Errors per TB"),
+    unit=unit_count,
+    color=Color.LIGHT_CYAN,
+)
 
-metric_info["read_errors_corrected_by_rereads_rewrites_per_tb"] = {
-    "title": _("Read Rereads/Rewrites Errors per TB"),
-    "unit": "count",
-    "color": "13/b",  # Orange variant
-}
+metric_read_errors_corrected_by_rereads_rewrites_per_tb = Metric(
+    name="read_errors_corrected_by_rereads_rewrites_per_tb",
+    title=Title("Read Rereads/Rewrites Errors per TB"),
+    unit=unit_count,
+    color=Color.PINK,
+)
 
-metric_info["read_correction_algorithm_invocations_per_tb"] = {
-    "title": _("Read Algorithm Invocations per TB"),
-    "unit": "count",
-    "color": "14/b",  # Purple variant
-}
+metric_read_correction_algorithm_invocations_per_tb = Metric(
+    name="read_correction_algorithm_invocations_per_tb",
+    title=Title("Read Algorithm Invocations per TB"),
+    unit=unit_count,
+    color=Color.LIGHT_PINK,
+)
 
+metric_read_total_uncorrected_errors_per_tb = Metric(
+    name="read_total_uncorrected_errors_per_tb",
+    title=Title("Read Uncorrected Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_RED,
+)
 
 # Detailed rate metrics for WRITE operations (per TB)
-metric_info["write_errors_corrected_by_eccfast_per_tb"] = {
-    "title": _("Write ECC Fast Errors per TB"),
-    "unit": "count",
-    "color": "21/b",  # Light Blue variant
-}
+metric_write_errors_corrected_by_eccfast_per_tb = Metric(
+    name="write_errors_corrected_by_eccfast_per_tb",
+    title=Title("Write ECC Fast Errors per TB"),
+    unit=unit_count,
+    color=Color.BROWN,
+)
 
-metric_info["write_errors_corrected_by_eccdelayed_per_tb"] = {
-    "title": _("Write ECC Delayed Errors per TB"),
-    "unit": "count",
-    "color": "22/b",  # Light Green variant
-}
+metric_write_errors_corrected_by_eccdelayed_per_tb = Metric(
+    name="write_errors_corrected_by_eccdelayed_per_tb",
+    title=Title("Write ECC Delayed Errors per TB"),
+    unit=unit_count,
+    color=Color.LIGHT_BROWN,
+)
 
-metric_info["write_errors_corrected_by_rereads_rewrites_per_tb"] = {
-    "title": _("Write Rereads/Rewrites Errors per TB"),
-    "unit": "count",
-    "color": "23/b",  # Light Orange variant
-}
+metric_write_errors_corrected_by_rereads_rewrites_per_tb = Metric(
+    name="write_errors_corrected_by_rereads_rewrites_per_tb",
+    title=Title("Write Rereads/Rewrites Errors per TB"),
+    unit=unit_count,
+    color=Color.GRAY,
+)
 
-metric_info["write_correction_algorithm_invocations_per_tb"] = {
-    "title": _("Write Algorithm Invocations per TB"),
-    "unit": "count",
-    "color": "24/b",  # Light Purple variant
-}
+metric_write_correction_algorithm_invocations_per_tb = Metric(
+    name="write_correction_algorithm_invocations_per_tb",
+    title=Title("Write Algorithm Invocations per TB"),
+    unit=unit_count,
+    color=Color.LIGHT_GRAY,
+)
 
+metric_write_total_uncorrected_errors_per_tb = Metric(
+    name="write_total_uncorrected_errors_per_tb",
+    title=Title("Write Uncorrected Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_RED,
+)
 
 # Detailed rate metrics for VERIFY operations (per TB)
-metric_info["verify_errors_corrected_by_eccfast_per_tb"] = {
-    "title": _("Verify ECC Fast Errors per TB"),
-    "unit": "count",
-    "color": "31/b",  # Dark Blue variant
-}
+metric_verify_errors_corrected_by_eccfast_per_tb = Metric(
+    name="verify_errors_corrected_by_eccfast_per_tb",
+    title=Title("Verify ECC Fast Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_CYAN,
+)
 
-metric_info["verify_errors_corrected_by_eccdelayed_per_tb"] = {
-    "title": _("Verify ECC Delayed Errors per TB"),
-    "unit": "count",
-    "color": "32/b",  # Dark Green variant
-}
+metric_verify_errors_corrected_by_eccdelayed_per_tb = Metric(
+    name="verify_errors_corrected_by_eccdelayed_per_tb",
+    title=Title("Verify ECC Delayed Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_PINK,
+)
 
-metric_info["verify_errors_corrected_by_rereads_rewrites_per_tb"] = {
-    "title": _("Verify Rereads/Rewrites Errors per TB"),
-    "unit": "count",
-    "color": "33/b",  # Dark Orange variant
-}
+metric_verify_errors_corrected_by_rereads_rewrites_per_tb = Metric(
+    name="verify_errors_corrected_by_rereads_rewrites_per_tb",
+    title=Title("Verify Rereads/Rewrites Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_BROWN,
+)
 
-metric_info["verify_correction_algorithm_invocations_per_tb"] = {
-    "title": _("Verify Algorithm Invocations per TB"),
-    "unit": "count",
-    "color": "34/b",  # Dark Purple variant
-}
+metric_verify_correction_algorithm_invocations_per_tb = Metric(
+    name="verify_correction_algorithm_invocations_per_tb",
+    title=Title("Verify Algorithm Invocations per TB"),
+    unit=unit_count,
+    color=Color.DARK_GRAY,
+)
 
+metric_verify_total_uncorrected_errors_per_tb = Metric(
+    name="verify_total_uncorrected_errors_per_tb",
+    title=Title("Verify Uncorrected Errors per TB"),
+    unit=unit_count,
+    color=Color.DARK_RED,
+)
 
+metric_total_bytes_processed = Metric(
+    name="total_bytes_processed",
+    title=Title("Total Bytes Processed"),
+    unit=unit_bytes,
+    color=Color.WHITE,
+)
 
 # Graph definitions - 6 combined graphs with detailed metrics
 
 # 1. Read Operation - Absolute Values (5 lines)
-graph_info["oposs_smart_error_read_absolute"] = {
-    "title": _("SMART Read Operations - Error Counts"),
-    "metrics": [
-        ("read_errors_corrected_by_eccfast", "line"),
-        ("read_errors_corrected_by_eccdelayed", "line"),
-        ("read_errors_corrected_by_rereads_rewrites", "line"),
-        ("read_correction_algorithm_invocations", "line"),
-        ("read_total_uncorrected_errors", "line"),
+graph_oposs_smart_error_read_absolute = Graph(
+    name="oposs_smart_error_read_absolute",
+    title=Title("SMART Read Operations - Error Counts"),
+    minimal_range=MinimalRange(0, 100),
+    simple_lines=[
+        "read_errors_corrected_by_eccfast",
+        "read_errors_corrected_by_eccdelayed",
+        "read_errors_corrected_by_rereads_rewrites",
+        "read_correction_algorithm_invocations",
+        "read_total_uncorrected_errors",
     ],
-}
+)
 
 # 2. Write Operation - Absolute Values (5 lines)
-graph_info["oposs_smart_error_write_absolute"] = {
-    "title": _("SMART Write Operations - Error Counts"),
-    "metrics": [
-        ("write_errors_corrected_by_eccfast", "line"),
-        ("write_errors_corrected_by_eccdelayed", "line"),
-        ("write_errors_corrected_by_rereads_rewrites", "line"),
-        ("write_correction_algorithm_invocations", "line"),
-        ("write_total_uncorrected_errors", "line"),
+graph_oposs_smart_error_write_absolute = Graph(
+    name="oposs_smart_error_write_absolute",
+    title=Title("SMART Write Operations - Error Counts"),
+    minimal_range=MinimalRange(0, 100),
+    simple_lines=[
+        "write_errors_corrected_by_eccfast",
+        "write_errors_corrected_by_eccdelayed",
+        "write_errors_corrected_by_rereads_rewrites",
+        "write_correction_algorithm_invocations",
+        "write_total_uncorrected_errors",
     ],
-}
+)
 
 # 3. Verify Operation - Absolute Values (5 lines)
-graph_info["oposs_smart_error_verify_absolute"] = {
-    "title": _("SMART Verify Operations - Error Counts"),
-    "metrics": [
-        ("verify_errors_corrected_by_eccfast", "line"),
-        ("verify_errors_corrected_by_eccdelayed", "line"),
-        ("verify_errors_corrected_by_rereads_rewrites", "line"),
-        ("verify_correction_algorithm_invocations", "line"),
-        ("verify_total_uncorrected_errors", "line"),
+graph_oposs_smart_error_verify_absolute = Graph(
+    name="oposs_smart_error_verify_absolute",
+    title=Title("SMART Verify Operations - Error Counts"),
+    minimal_range=MinimalRange(0, 100),
+    simple_lines=[
+        "verify_errors_corrected_by_eccfast",
+        "verify_errors_corrected_by_eccdelayed",
+        "verify_errors_corrected_by_rereads_rewrites",
+        "verify_correction_algorithm_invocations",
+        "verify_total_uncorrected_errors",
     ],
-}
+)
 
 # 4. Read Operation - Relative Values per TB (4 lines)
-graph_info["oposs_smart_error_read_relative"] = {
-    "title": _("SMART Read Operations - Relative Values (per TB)"),
-    "metrics": [
-        ("read_errors_corrected_by_eccfast_per_tb", "line"),
-        ("read_errors_corrected_by_eccdelayed_per_tb", "line"),
-        ("read_errors_corrected_by_rereads_rewrites_per_tb", "line"),
-        ("read_correction_algorithm_invocations_per_tb", "line"),
+graph_oposs_smart_error_read_relative = Graph(
+    name="oposs_smart_error_read_relative",
+    title=Title("SMART Read Operations - Relative Values (per TB)"),
+    minimal_range=MinimalRange(0, 10),
+    simple_lines=[
+        "read_errors_corrected_by_eccfast_per_tb",
+        "read_errors_corrected_by_eccdelayed_per_tb",
+        "read_errors_corrected_by_rereads_rewrites_per_tb",
+        "read_correction_algorithm_invocations_per_tb",
     ],
-}
+)
 
 # 5. Write Operation - Relative Values per TB (4 lines)
-graph_info["oposs_smart_error_write_relative"] = {
-    "title": _("SMART Write Operations - Relative Values (per TB)"),
-    "metrics": [
-        ("write_errors_corrected_by_eccfast_per_tb", "line"),
-        ("write_errors_corrected_by_eccdelayed_per_tb", "line"),
-        ("write_errors_corrected_by_rereads_rewrites_per_tb", "line"),
-        ("write_correction_algorithm_invocations_per_tb", "line"),
+graph_oposs_smart_error_write_relative = Graph(
+    name="oposs_smart_error_write_relative",
+    title=Title("SMART Write Operations - Relative Values (per TB)"),
+    minimal_range=MinimalRange(0, 10),
+    simple_lines=[
+        "write_errors_corrected_by_eccfast_per_tb",
+        "write_errors_corrected_by_eccdelayed_per_tb",
+        "write_errors_corrected_by_rereads_rewrites_per_tb",
+        "write_correction_algorithm_invocations_per_tb",
     ],
-}
+)
 
 # 6. Verify Operation - Relative Values per TB (4 lines)
-graph_info["oposs_smart_error_verify_relative"] = {
-    "title": _("SMART Verify Operations - Relative Values (per TB)"),
-    "metrics": [
-        ("verify_errors_corrected_by_eccfast_per_tb", "line"),
-        ("verify_errors_corrected_by_eccdelayed_per_tb", "line"),
-        ("verify_errors_corrected_by_rereads_rewrites_per_tb", "line"),
-        ("verify_correction_algorithm_invocations_per_tb", "line"),
+graph_oposs_smart_error_verify_relative = Graph(
+    name="oposs_smart_error_verify_relative",
+    title=Title("SMART Verify Operations - Relative Values (per TB)"),
+    minimal_range=MinimalRange(0, 10),
+    simple_lines=[
+        "verify_errors_corrected_by_eccfast_per_tb",
+        "verify_errors_corrected_by_eccdelayed_per_tb",
+        "verify_errors_corrected_by_rereads_rewrites_per_tb",
+        "verify_correction_algorithm_invocations_per_tb",
     ],
-}
+)
 
 # Bytes processed stacked graph - shows cumulative storage activity
-graph_info["oposs_smart_error_bytes_processed"] = {
-    "title": _("SMART Operations - Bytes Processed"),
-    "metrics": [
-        ("read_bytes_processed", "stack"),
-        ("write_bytes_processed", "stack"),
-        ("verify_bytes_processed", "stack"),
+graph_oposs_smart_error_bytes_processed = Graph(
+    name="oposs_smart_error_bytes_processed",
+    title=Title("SMART Operations - Bytes Processed"),
+    minimal_range=MinimalRange(0, 1000000000),
+    simple_lines=[
+        "read_bytes_processed",
+        "write_bytes_processed", 
+        "verify_bytes_processed",
     ],
-}
+)
 
 # Perfometer for service overview - using individual operation uncorrected errors
-perfometer_info.append({
-    "type": "linear",
-    "segments": [
+perfometer_oposs_smart_error = Perfometer(
+    name="oposs_smart_error",
+    focus_range=FocusRange(
+        lower=Closed(0),
+        upper=Closed(100),
+    ),
+    segments=[
         "read_total_uncorrected_errors",
         "write_total_uncorrected_errors", 
         "verify_total_uncorrected_errors",
     ],
-    "total": 100,
-})
+)

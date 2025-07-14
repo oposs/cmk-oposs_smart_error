@@ -24,11 +24,7 @@ A comprehensive CheckMK plugin for monitoring SMART error counters on storage de
 Copy the plugin files to your CheckMK site:
 
 ```bash
-# Navigate to your CheckMK site directory
-cd ~/local/lib/python3/cmk_addons/plugins/
-
-# Copy the plugin components
-cp -r /path/to/oposs_smart_error ./
+cp -r local/* ~/local
 ```
 
 The directory structure should look like:
@@ -68,7 +64,7 @@ chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
 
 ```bash
 # Restart CheckMK to load the new plugins
-omd restart
+omd restart apache
 ```
 
 ## Configuration

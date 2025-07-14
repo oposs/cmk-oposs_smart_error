@@ -26,6 +26,26 @@ from cmk.agent_based.v2 import (
 Section = Dict[str, Dict[str, Any]]
 
 
+def _get_levels_from_params(params: Mapping[str, Any], param_key: str) -> Optional[Tuple[int, int]]:
+    """Extract warning and critical levels from parameters, handling both old and new format"""
+    if param_key not in params:
+        return None
+    
+    levels = params[param_key]
+    
+    # Handle tuple format (old CheckMK or direct tuple)
+    if isinstance(levels, tuple) and len(levels) == 2:
+        return levels
+    
+    # Handle dict format (new CheckMK 2.3 SimpleLevels)
+    if isinstance(levels, dict) and "levels_upper" in levels:
+        levels_upper = levels["levels_upper"]
+        if isinstance(levels_upper, tuple) and len(levels_upper) == 2:
+            return levels_upper
+    
+    return None
+
+
 def _create_device_description(device_path: str, model: str, serial: str, capacity_bytes: int) -> str:
     """Create a friendly device description"""
     parts = []
@@ -186,14 +206,13 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                 if uncorrected > 0:
                     error_state = State.OK
                     param_key = f"{operation}_uncorrected_errors_abs"
-                    if param_key in params:
-                        levels = params[param_key]
-                        if isinstance(levels, tuple) and len(levels) == 2:
-                            warn, crit = levels
-                            if uncorrected >= crit:
-                                error_state = State.CRIT
-                            elif uncorrected >= warn:
-                                error_state = State.WARN
+                    levels = _get_levels_from_params(params, param_key)
+                    if levels:
+                        warn, crit = levels
+                        if uncorrected >= crit:
+                            error_state = State.CRIT
+                        elif uncorrected >= warn:
+                            error_state = State.WARN
                     else:
                         # Default behavior - any uncorrected errors are critical
                         error_state = State.CRIT
@@ -204,14 +223,13 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                 if eccfast > 0:
                     error_state = State.OK
                     param_key = f"{operation}_eccfast_errors_abs"
-                    if param_key in params:
-                        levels = params[param_key]
-                        if isinstance(levels, tuple) and len(levels) == 2:
-                            warn, crit = levels
-                            if eccfast >= crit:
-                                error_state = State.CRIT
-                            elif eccfast >= warn:
-                                error_state = State.WARN
+                    levels = _get_levels_from_params(params, param_key)
+                    if levels:
+                        warn, crit = levels
+                        if eccfast >= crit:
+                            error_state = State.CRIT
+                        elif eccfast >= warn:
+                            error_state = State.WARN
                     
                     yield Result(state=error_state, summary=f"{operation.capitalize()} ECC fast: {eccfast}")
                 
@@ -219,14 +237,13 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                 if eccdelayed > 0:
                     error_state = State.OK
                     param_key = f"{operation}_eccdelayed_errors_abs"
-                    if param_key in params:
-                        levels = params[param_key]
-                        if isinstance(levels, tuple) and len(levels) == 2:
-                            warn, crit = levels
-                            if eccdelayed >= crit:
-                                error_state = State.CRIT
-                            elif eccdelayed >= warn:
-                                error_state = State.WARN
+                    levels = _get_levels_from_params(params, param_key)
+                    if levels:
+                        warn, crit = levels
+                        if eccdelayed >= crit:
+                            error_state = State.CRIT
+                        elif eccdelayed >= warn:
+                            error_state = State.WARN
                     
                     yield Result(state=error_state, summary=f"{operation.capitalize()} ECC delayed: {eccdelayed}")
                 
@@ -234,28 +251,26 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                 if rereads > 0:
                     error_state = State.OK
                     param_key = f"{operation}_rereads_rewrites_errors_abs"
-                    if param_key in params:
-                        levels = params[param_key]
-                        if isinstance(levels, tuple) and len(levels) == 2:
-                            warn, crit = levels
-                            if rereads >= crit:
-                                error_state = State.CRIT
-                            elif rereads >= warn:
-                                error_state = State.WARN
+                    levels = _get_levels_from_params(params, param_key)
+                    if levels:
+                        warn, crit = levels
+                        if rereads >= crit:
+                            error_state = State.CRIT
+                        elif rereads >= warn:
+                            error_state = State.WARN
                     
                     yield Result(state=error_state, summary=f"{operation.capitalize()} rereads/rewrites: {rereads}")
                 
                 # Algorithm invocations (only if configured)
                 param_key = f"{operation}_algorithm_invocations_abs"
-                if param_key in params and algorithm_invocations > 0:
+                levels = _get_levels_from_params(params, param_key)
+                if levels and algorithm_invocations > 0:
                     error_state = State.OK
-                    levels = params[param_key]
-                    if isinstance(levels, tuple) and len(levels) == 2:
-                        warn, crit = levels
-                        if algorithm_invocations >= crit:
-                            error_state = State.CRIT
-                        elif algorithm_invocations >= warn:
-                            error_state = State.WARN
+                    warn, crit = levels
+                    if algorithm_invocations >= crit:
+                        error_state = State.CRIT
+                    elif algorithm_invocations >= warn:
+                        error_state = State.WARN
                     
                     yield Result(state=error_state, summary=f"{operation.capitalize()} algorithm invocations: {algorithm_invocations}")
     

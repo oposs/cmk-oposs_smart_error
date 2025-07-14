@@ -32,7 +32,7 @@ def get_smart_devices(timeout: int) -> List[Dict]:
             ['smartctl', '--json', '--scan'],
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=timeout * 3  # allow extra time for scanning
         )
         if result.returncode != 0:
             return []
