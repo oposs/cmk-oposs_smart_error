@@ -1,0 +1,353 @@
+name: Enhanced Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        type: choice
+        options:
+          - bugfix
+          - feature
+          - major
+        default: 'bugfix'
+
+permissions:
+  contents: write
+
+jobs:
+  verify-branch:
+    name: Verify Release Branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Verify main branch
+        run: |
+          if [ "${{ github.ref_name }}" != "main" ]; then
+            echo "❌ Releases can only be created from the main branch"
+            echo "Current branch: ${{ github.ref_name }}"
+            exit 1
+          fi
+          echo "✅ Release from main branch verified"
+
+  verify-tests:
+    name: Verify Tests Pass
+    runs-on: ubuntu-latest
+    needs: verify-branch
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      
+      - name: Validate source files
+        run: |
+          echo "🔍 Validating source files..."
+          ERRORS=0
+          
+          # Check agent plugin
+          if [ ! -f "local/share/check_mk/agents/plugins/oposs_smart_error" ]; then
+            echo "❌ Agent plugin not found"
+            ERRORS=$((ERRORS + 1))
+          fi
+          
+          # Check check plugins
+          FILES=(
+            "local/lib/python3/cmk_addons/plugins/oposs_smart_error/agent_based/oposs_smart_error.py"
+            "local/lib/python3/cmk_addons/plugins/oposs_smart_error/checkman/oposs_smart_error"
+            "local/lib/python3/cmk_addons/plugins/oposs_smart_error/graphing/oposs_smart_error.py"
+            "local/lib/python3/cmk_addons/plugins/oposs_smart_error/rulesets/oposs_smart_error.py"
+            "local/lib/python3/cmk_addons/plugins/oposs_smart_error/rulesets/ruleset_oposs_smart_error_bakery.py"
+          )
+          
+          for file in "${FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Check plugin file not found: $file"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done
+          
+          # Check bakery plugin
+          if [ ! -f "local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py" ]; then
+            echo "❌ Bakery plugin not found"
+            ERRORS=$((ERRORS + 1))
+          fi
+          
+          if [ $ERRORS -gt 0 ]; then
+            echo "❌ Validation failed with $ERRORS errors"
+            exit 1
+          fi
+          
+          echo "✅ All source files validated successfully"
+      
+      - name: Python syntax check
+        run: |
+          echo "🔍 Checking Python syntax..."
+          python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/agent_based/oposs_smart_error.py
+          python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/graphing/oposs_smart_error.py
+          python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/rulesets/oposs_smart_error.py
+          python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/rulesets/ruleset_oposs_smart_error_bakery.py
+          python3 -m py_compile local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py
+          python3 -m py_compile local/share/check_mk/agents/plugins/oposs_smart_error
+          echo "✅ Python syntax validation passed"
+
+  generate-version:
+    name: Generate Version
+    runs-on: ubuntu-latest
+    needs: verify-tests
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      changelog: ${{ steps.changelog.outputs.changelog }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Generate version
+        id: version
+        run: |
+          # Get latest tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LATEST_VERSION=${LATEST_TAG#v}
+          
+          echo "Latest version: $LATEST_VERSION"
+          
+          # Parse current version
+          IFS='.' read -r -a VERSION_PARTS <<< "$LATEST_VERSION"
+          MAJOR=${VERSION_PARTS[0]}
+          MINOR=${VERSION_PARTS[1]}
+          PATCH=${VERSION_PARTS[2]}
+          
+          # Increment based on release type
+          case "${{ github.event.inputs.release_type }}" in
+            major)
+              MAJOR=$((MAJOR + 1))
+              MINOR=0
+              PATCH=0
+              ;;
+            feature)
+              MINOR=$((MINOR + 1))
+              PATCH=0
+              ;;
+            bugfix)
+              PATCH=$((PATCH + 1))
+              ;;
+          esac
+          
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+      - name: Update CHANGES.md
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DATE=$(date +%Y-%m-%d)
+          
+          # Create backup
+          cp CHANGES.md CHANGES.md.backup
+          
+          # Extract unreleased section
+          UNRELEASED=$(sed -n '/## \[Unreleased\]/,/## [0-9]/p' CHANGES.md | head -n -1)
+          
+          # Create new changelog entry
+          cat > CHANGES.md.new << EOF
+          # Changelog
+          
+          All notable changes to the CheckMK OPOSS SMART Error Monitoring Plugin will be documented in this file.
+          
+          The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+          and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+          
+          ## [Unreleased]
+          ### New
+          ### Changed
+          ### Fixed
+          
+          ## ${VERSION} - ${DATE}
+          EOF
+          
+          # Add unreleased content to new version
+          echo "$UNRELEASED" | sed '/## \[Unreleased\]/d' | sed '/^$/d' >> CHANGES.md.new
+          
+          # Add previous versions
+          sed -n '/## [0-9]/,$p' CHANGES.md >> CHANGES.md.new
+          
+          # Replace original
+          mv CHANGES.md.new CHANGES.md
+          
+          # Extract release notes for this version
+          RELEASE_NOTES=$(sed -n "/## ${VERSION}/,/## [0-9]/p" CHANGES.md | head -n -1 | tail -n +2)
+          
+          # Save release notes to file
+          echo "$RELEASE_NOTES" > release_notes.md
+          
+          # Output for later use
+          echo "changelog<<EOF" >> $GITHUB_OUTPUT
+          echo "$RELEASE_NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: Commit version update
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGES.md
+          git commit -m "Release version $VERSION
+
+          Updated CHANGES.md with release notes for version $VERSION"
+          git tag -a "v$VERSION" -m "Release version $VERSION"
+          git push origin main
+          git push origin "v$VERSION"
+
+  build-and-release:
+    name: Build and Release
+    runs-on: ubuntu-latest
+    needs: generate-version
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          
+      - name: Build MKP package
+        id: build
+        run: |
+          VERSION="${{ needs.generate-version.outputs.version }}"
+          BUILD_DIR="/tmp/mkp_build"
+          PACKAGE_NAME="oposs_smart_errors"
+          OUTPUT_FILE="${PACKAGE_NAME}-${VERSION}.mkp"
+          
+          echo "🏗️ Building MKP package version $VERSION"
+          
+          # Create build directory
+          mkdir -p "$BUILD_DIR"
+          
+          # Create tar files
+          echo "📦 Creating component tar files..."
+          tar -cf "$BUILD_DIR/agents.tar" -C "local/share/check_mk/agents" plugins/oposs_smart_error
+          tar -cf "$BUILD_DIR/cmk_addons_plugins.tar" -C "local/lib/python3/cmk_addons/plugins" oposs_smart_error/
+          tar -cf "$BUILD_DIR/lib.tar" -C "local/lib/python3" cmk/base/cee/plugins/bakery/oposs_smart_error.py
+          
+          # Create metadata files
+          echo "📄 Creating metadata files..."
+          cat > "$BUILD_DIR/info.json" << EOF
+          {
+              "title": "SMART Error Monitoring Plugin",
+              "name": "$PACKAGE_NAME",
+              "description": "A comprehensive CheckMK plugin for monitoring SMART error counters on storage devices. This plugin collects detailed error statistics from drives and provides threshold-based alerting and graphing.",
+              "version": "$VERSION",
+              "version.packaged": "2.3.0p34",
+              "version.min_required": "2.3.0p1",
+              "version.usable_until": null,
+              "author": "Tobi Oetiker tobi@oetiker.ch",
+              "download_url": "https://github.com/oposs/cmk-oposs_smart_error",
+              "files": {
+                  "cmk_addons_plugins": [
+                      "oposs_smart_error/agent_based/oposs_smart_error.py",
+                      "oposs_smart_error/checkman/oposs_smart_error",
+                      "oposs_smart_error/graphing/oposs_smart_error.py",
+                      "oposs_smart_error/rulesets/oposs_smart_error.py",
+                      "oposs_smart_error/rulesets/ruleset_oposs_smart_error_bakery.py"
+                  ],
+                  "agents": [
+                      "plugins/oposs_smart_error"
+                  ],
+                  "lib": [
+                      "cmk/base/cee/plugins/bakery/oposs_smart_error.py"
+                  ]
+              }
+          }
+          EOF
+          
+          cat > "$BUILD_DIR/info" << EOF
+          {'author': 'Tobi Oetiker tobi@oetiker.ch',
+           'description': 'A comprehensive CheckMK plugin for monitoring SMART error counters on storage devices. This plugin collects detailed error statistics from drives and provides threshold-based alerting and graphing.',
+           'download_url': 'https://github.com/oposs/cmk-oposs_smart_error',
+           'files': {'agents': ['plugins/oposs_smart_error'],
+                     'cmk_addons_plugins': ['oposs_smart_error/agent_based/oposs_smart_error.py',
+                                            'oposs_smart_error/checkman/oposs_smart_error',
+                                            'oposs_smart_error/graphing/oposs_smart_error.py',
+                                            'oposs_smart_error/rulesets/oposs_smart_error.py',
+                                            'oposs_smart_error/rulesets/ruleset_oposs_smart_error_bakery.py'],
+                     'lib': ['cmk/base/cee/plugins/bakery/oposs_smart_error.py']},
+           'name': '$PACKAGE_NAME',
+           'title': 'SMART Error Monitoring Plugin',
+           'version': '$VERSION',
+           'version.min_required': '2.3.0p1',
+           'version.packaged': '2.3.0p34',
+           'version.usable_until': None}
+          EOF
+          
+          # Create final MKP package
+          echo "📦 Creating final MKP package: $OUTPUT_FILE"
+          tar -czf "$OUTPUT_FILE" -C "$BUILD_DIR" agents.tar cmk_addons_plugins.tar lib.tar info info.json
+          
+          # Get file size
+          SIZE=$(ls -lh "$OUTPUT_FILE" | awk '{print $5}')
+          echo "✅ Package created: $OUTPUT_FILE ($SIZE)"
+          
+          # Set output
+          echo "package_file=$OUTPUT_FILE" >> $GITHUB_OUTPUT
+          echo "package_size=$SIZE" >> $GITHUB_OUTPUT
+          
+          # Cleanup
+          rm -rf "$BUILD_DIR"
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ needs.generate-version.outputs.version }}"
+          name: "CheckMK SMART Error Plugin v${{ needs.generate-version.outputs.version }}"
+          body: |
+            # CheckMK SMART Error Monitoring Plugin v${{ needs.generate-version.outputs.version }}
+            
+            ## Release Notes
+            ${{ needs.generate-version.outputs.changelog }}
+            
+            ## Installation
+            
+            1. **Download**: Download the `${{ steps.build.outputs.package_file }}` from the assets below
+            2. **Install via GUI**: Setup → Extension packages → Upload package
+            3. **Install via CLI**: `mkp install ${{ steps.build.outputs.package_file }}`
+            
+            ## Package Information
+            
+            - **File**: `${{ steps.build.outputs.package_file }}`
+            - **Size**: ${{ steps.build.outputs.package_size }}
+            - **CheckMK Version**: 2.3.0p1 or higher
+            - **Target Version**: 2.3.0p34
+            
+            ## Components
+            
+            - ✅ Agent plugin for SMART data collection
+            - ✅ Check plugin for monitoring and alerting  
+            - ✅ Graphing components for visualization
+            - ✅ Bakery integration for automatic deployment
+            - ✅ Configuration rulesets for thresholds
+            
+            ---
+            
+            **Author**: Tobi Oetiker <tobi@oetiker.ch>  
+            **Repository**: https://github.com/oposs/cmk-oposs_smart_error  
+            **Documentation**: See plugin checkman documentation after installation
+          files: |
+            ${{ steps.build.outputs.package_file }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mkp-package-${{ needs.generate-version.outputs.version }}
+          path: ${{ steps.build.outputs.package_file }}
+          retention-days: 90
