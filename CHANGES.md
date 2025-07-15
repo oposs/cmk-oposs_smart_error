@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+## 0.9.4 - 2025-07-15
+### Fixed
+- Verified MKP package structure and contents are correct
+- Confirmed bakery plugin is properly included in lib.tar
+- Ensured no .pyc files are included in the release package
+- Package contains all required components for complete installation
+
 ## 0.9.3 - 2025-07-15
 ### Fixed
 - Fixed version validation to support test versions (X.Y.Z-suffix format)
