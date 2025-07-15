@@ -74,7 +74,7 @@ jobs:
           done
           
           # Check bakery plugin
-          if [ ! -f "local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py" ]; then
+          if [ ! -f "local/lib/python3/check_mk/base/cee/plugins/bakery/oposs_smart_error.py" ]; then
             echo "❌ Bakery plugin not found"
             ERRORS=$((ERRORS + 1))
           fi
@@ -232,9 +232,9 @@ jobs:
           
           # Create tar files
           echo "📦 Creating component tar files..."
-          tar -cf "$BUILD_DIR/agents.tar" -C "local/share/check_mk/agents" plugins/oposs_smart_error
-          tar -cf "$BUILD_DIR/cmk_addons_plugins.tar" -C "local/lib/python3/cmk_addons/plugins" oposs_smart_error/
-          tar -cf "$BUILD_DIR/lib.tar" -C "local/lib/python3" cmk/base/cee/plugins/bakery/oposs_smart_error.py
+          tar -cf "$BUILD_DIR/agents.tar" -C "local/share/check_mk/agents" --exclude="*.pyc" --exclude="__pycache__" plugins/oposs_smart_error
+          tar -cf "$BUILD_DIR/cmk_addons_plugins.tar" -C "local/lib/python3/cmk_addons/plugins" --exclude="*.pyc" --exclude="__pycache__" oposs_smart_error/
+          tar -cf "$BUILD_DIR/lib.tar" -C "local/lib/python3" check_mk/base/cee/plugins/bakery/oposs_smart_error.py
           
           # Create metadata files
           echo "📄 Creating metadata files..."

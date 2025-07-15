@@ -136,7 +136,7 @@ create_info_json() {
             "plugins/oposs_smart_error"
         ],
         "lib": [
-            "cmk/base/cee/plugins/bakery/oposs_smart_error.py"
+            "check_mk/base/cee/plugins/bakery/oposs_smart_error.py"
         ]
     }
 }
@@ -158,7 +158,7 @@ create_info_file() {
                                   'oposs_smart_error/graphing/oposs_smart_error.py',
                                   'oposs_smart_error/rulesets/oposs_smart_error.py',
                                   'oposs_smart_error/rulesets/ruleset_oposs_smart_error_bakery.py'],
-           'lib': ['cmk/base/cee/plugins/bakery/oposs_smart_error.py']},
+           'lib': ['check_mk/base/cee/plugins/bakery/oposs_smart_error.py']},
  'name': '$PACKAGE_NAME',
  'title': '$PACKAGE_TITLE',
  'version': '$version',
@@ -196,24 +196,24 @@ build_mkp() {
     # Create tar files
     print_step "Creating component tar files..."
     
-    # Create agents.tar
-    if ! tar -cf "$build_dir/agents.tar" -C "local/share/check_mk/agents" plugins/oposs_smart_error; then
+    # Create agents.tar (exclude .pyc files and __pycache__)
+    if ! tar -cf "$build_dir/agents.tar" -C "local/share/check_mk/agents" --exclude="*.pyc" --exclude="__pycache__" plugins/oposs_smart_error; then
         print_error "Failed to create agents.tar"
         rm -rf "$build_dir"
         exit 1
     fi
     print_info "✓ agents.tar created"
     
-    # Create cmk_addons_plugins.tar
-    if ! tar -cf "$build_dir/cmk_addons_plugins.tar" -C "local/lib/python3/cmk_addons/plugins" oposs_smart_error/; then
+    # Create cmk_addons_plugins.tar (exclude .pyc files and __pycache__)
+    if ! tar -cf "$build_dir/cmk_addons_plugins.tar" -C "local/lib/python3/cmk_addons/plugins" --exclude="*.pyc" --exclude="__pycache__" oposs_smart_error/; then
         print_error "Failed to create cmk_addons_plugins.tar"
         rm -rf "$build_dir"
         exit 1
     fi
     print_info "✓ cmk_addons_plugins.tar created"
     
-    # Create lib.tar
-    if ! tar -cf "$build_dir/lib.tar" -C "local/lib/python3" cmk/base/cee/plugins/bakery/oposs_smart_error.py; then
+    # Create lib.tar (transform cmk path to check_mk path)
+    if ! tar -cf "$build_dir/lib.tar" -C "local/lib/python3" --transform 's|^cmk/|check_mk/|' cmk/base/cee/plugins/bakery/oposs_smart_error.py; then
         print_error "Failed to create lib.tar"
         rm -rf "$build_dir"
         exit 1
