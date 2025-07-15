@@ -280,9 +280,9 @@ fi
 
 version="$1"
 
-# Validate version format
-if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    print_error "Invalid version format: $version (expected: X.Y.Z)"
+# Validate version format (allow test versions like X.Y.Z-test)
+if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+    print_error "Invalid version format: $version (expected: X.Y.Z or X.Y.Z-suffix)"
     exit 1
 fi
 
