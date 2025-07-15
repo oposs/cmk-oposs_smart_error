@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+## 0.9.3 - 2025-07-15
+### Fixed
+- Fixed version validation to support test versions (X.Y.Z-suffix format)
+- Resolved GitHub Actions test workflow failures
+- Fixed YAML syntax errors in test workflow configuration
+- Improved build script robustness for CI/CD pipeline
+
 ## 0.9.1 - 2025-07-15
 ### Fixed
 - Improved README with comprehensive MKP installation instructions
