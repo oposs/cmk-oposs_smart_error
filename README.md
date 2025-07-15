@@ -17,11 +17,36 @@ A comprehensive CheckMK plugin for monitoring SMART error counters on storage de
 - `smartmontools` package installed on target hosts
 - Storage devices supporting SCSI error counter logs (most enterprise drives)
 
+## Download
+
+Get the latest version from the [GitHub releases page](https://github.com/oposs/cmk-oposs_smart_error/releases).
+
+Each release includes:
+- Pre-built MKP package (recommended)
+- Source code
+- Release notes with changelog
+
 ## Installation
 
-### 1. Copy Plugin Files
+### Recommended: Install from MKP Package
 
-Copy the plugin files to your CheckMK site:
+The easiest way to install the plugin is using the pre-built MKP package:
+
+1. **Download the MKP package** from the [releases page](https://github.com/oposs/cmk-oposs_smart_error/releases)
+2. **Install via CheckMK GUI**:
+   - Navigate to **Setup → Extension packages**
+   - Click **Upload package**
+   - Select the downloaded `oposs_smart_errors-X.Y.Z.mkp` file
+   - Click **Install**
+
+3. **Or install via command line**:
+   ```bash
+   mkp add oposs_smart_errors-X.Y.Z.mkp
+   ```
+
+### Alternative: Manual Installation
+
+If you prefer to install from source, copy the plugin files to your CheckMK site:
 
 ```bash
 cp -r local/* ~/local
@@ -47,25 +72,23 @@ The directory structure should look like:
 └── oposs_smart_error             # Agent plugin script
 ```
 
-### 2. Agent Plugin Deployment
+### Post-Installation Steps
 
-The agent plugin is located in the `local/share/check_mk/agents/plugins/` directory.
+After installing the MKP package or manually copying files:
 
-```bash
-# For manual deployment
-cp local/share/check_mk/agents/plugins/oposs_smart_error /usr/lib/check_mk_agent/plugins/
-chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
+1. **Restart CheckMK** to load the new plugins:
+   ```bash
+   omd restart apache
+   ```
 
-# For Agent Bakery deployment (recommended)
-# The bakery will automatically read and deploy the plugin from local/share/check_mk/agents/plugins/
-```
-
-### 3. Restart CheckMK
-
-```bash
-# Restart CheckMK to load the new plugins
-omd restart apache
-```
+2. **Agent Plugin Deployment**:
+   - **With MKP installation**: The agent plugin is automatically available for bakery deployment
+   - **For manual deployment**: Copy the agent plugin to target hosts:
+     ```bash
+     cp local/share/check_mk/agents/plugins/oposs_smart_error /usr/lib/check_mk_agent/plugins/
+     chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
+     ```
+   - **For Agent Bakery deployment (recommended)**: The bakery will automatically deploy the plugin
 
 ## Configuration
 
@@ -207,4 +230,22 @@ If no custom thresholds are configured:
 
 ## License
 
-This plugin is provided as-is for monitoring purposes. Ensure compliance with your organization's policies when deploying.
+This project is licensed under the GNU General Public License v2.0 - see the [LICENSE](LICENSE) file for details.
+
+## Author
+
+**Tobi Oetiker** <tobi@oetiker.ch>
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/oposs/cmk-oposs_smart_error/issues)
+- **Documentation**: See plugin checkman documentation after installation
+- **Releases**: [GitHub Releases](https://github.com/oposs/cmk-oposs_smart_error/releases)
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
