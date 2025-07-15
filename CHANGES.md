@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+## 0.9.5 - 2025-07-15
+### Fixed
+- Fixed MKP build process with proper path handling and exclusions
+- Fixed bakery plugin path from cmk/ to check_mk/ in both build script and workflow
+- Added .pyc file and __pycache__ exclusions to prevent build artifacts in package
+- Updated tar creation to use proper path transformations
+- Ensured clean MKP packages without Python compilation artifacts
+
 ## 0.9.4 - 2025-07-15
 ### Fixed
 - Verified MKP package structure and contents are correct
