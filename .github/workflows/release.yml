@@ -177,11 +177,11 @@ jobs:
         
         # Create final MKP package
         echo "Creating MKP package: $OUTPUT_FILE"
-        tar -cf "$OUTPUT_FILE" -C "$BUILD_DIR" agents.tar cmk_addons_plugins.tar lib.tar info info.json
+        tar -czf "$OUTPUT_FILE" -C "$BUILD_DIR" agents.tar cmk_addons_plugins.tar lib.tar info info.json
         
         # Verify package
         echo "Package contents:"
-        tar -tf "$OUTPUT_FILE"
+        tar -tzf "$OUTPUT_FILE"
         
         # Get file size
         SIZE=$(ls -lh "$OUTPUT_FILE" | awk '{print $5}')

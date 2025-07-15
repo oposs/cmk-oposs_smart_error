@@ -228,7 +228,7 @@ build_mkp() {
     
     # Create final MKP package
     print_step "Creating MKP package: $output_file"
-    if ! tar -cf "$output_file" -C "$build_dir" agents.tar cmk_addons_plugins.tar lib.tar info info.json; then
+    if ! tar -czf "$output_file" -C "$build_dir" agents.tar cmk_addons_plugins.tar lib.tar info info.json; then
         print_error "Failed to create MKP package"
         rm -rf "$build_dir"
         exit 1
