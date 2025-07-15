@@ -111,16 +111,7 @@ jobs:
         echo "✓ info.json is valid JSON"
         
         # Check required fields
-        python3 -c "
-import json
-info = json.load(open('info.json'))
-required_fields = ['title', 'name', 'description', 'version', 'author', 'files']
-missing = [f for f in required_fields if f not in info]
-if missing:
-    print('Missing required fields: ' + str(missing))
-    exit(1)
-print('✓ All required fields present')
-        "
+        python3 -c 'import json; info = json.load(open("info.json")); required_fields = ["title", "name", "description", "version", "author", "files"]; missing = [f for f in required_fields if f not in info]; print("Missing required fields: " + str(missing)) if missing else print("✓ All required fields present"); exit(1) if missing else None'
         
         # Clean up
         rm -f oposs_smart_errors-0.0.1-test.mkp info.json
