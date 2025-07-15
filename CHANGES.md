@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+## 0.9.1 - 2025-07-15
+### Fixed
+- Improved README with comprehensive MKP installation instructions
+- Added clear download section linking to GitHub releases
+- Enhanced installation documentation with GUI and CLI methods
+- Added proper support and contributing sections
+
 ## 0.9.0 - 2025-07-15
 ### New
 - Initial release of CheckMK OPOSS SMART Error Monitoring Plugin
