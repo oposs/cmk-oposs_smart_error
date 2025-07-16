@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 ### Fixed
 
+## 1.0.0 - 2025-07-16
+### Changed
+- Major release milestone - plugin is production ready
+- Simplified build infrastructure for better maintainability
+- Streamlined release process with manual MKP uploads
+- Clean repository structure focused on source code management
+
 ## 0.9.5 - 2025-07-15
 ### Fixed
 - Fixed MKP build process with proper path handling and exclusions
