@@ -5,7 +5,7 @@
 !/.gitignore
 !/.github
 !/scripts
-!/*.mkp
+!/mkp
 *~
 *.swp
 *.bak
