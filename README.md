@@ -36,12 +36,12 @@ The easiest way to install the plugin is using the pre-built MKP package:
 2. **Install via CheckMK GUI**:
    - Navigate to **Setup → Extension packages**
    - Click **Upload package**
-   - Select the downloaded `oposs_smart_errors-X.Y.Z.mkp` file
+   - Select the downloaded `oposs_smart_error-X.Y.Z.mkp` file
    - Click **Install**
 
 3. **Or install via command line**:
    ```bash
-   mkp add oposs_smart_errors-X.Y.Z.mkp
+   mkp add oposs_smart_error-X.Y.Z.mkp
    ```
 
 ### Alternative: Manual Installation
