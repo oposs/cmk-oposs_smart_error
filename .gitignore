@@ -4,8 +4,7 @@
 !/*.md
 !/.gitignore
 !/.github
-!/scripts
-!/mkp
+!/.mkp-builder.ini
 *~
 *.swp
 *.bak
@@ -14,4 +13,4 @@
 *.DS_Store
 *.idea
 *.env
-*__pycache__
+__pycache__
