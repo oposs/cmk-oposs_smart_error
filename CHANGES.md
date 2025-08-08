@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### New
 
 ### Changed
-- switch to check_levels
 
 ### Fixed
+
+## 1.0.4 - 2025-08-08
+### Changed
+- switch to check_levels
 
 ## 1.0.3 - 2025-08-07
 ### Fixed
