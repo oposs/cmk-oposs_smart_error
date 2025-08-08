@@ -20,30 +20,16 @@ from cmk.agent_based.v2 import (
     State,
     StringTable,
     render,
+    check_levels,
 )
 
 
 Section = Dict[str, Dict[str, Any]]
 
 
-def _get_levels_from_params(params: Mapping[str, Any], param_key: str) -> Optional[Tuple[int, int]]:
-    """Extract warning and critical levels from parameters, handling both old and new format"""
-    if param_key not in params:
-        return None
-    
-    levels = params[param_key]
-    
-    # Handle tuple format (old CheckMK or direct tuple)
-    if isinstance(levels, tuple) and len(levels) == 2:
-        return levels
-    
-    # Handle dict format (new CheckMK 2.3 SimpleLevels)
-    if isinstance(levels, dict) and "levels_upper" in levels:
-        levels_upper = levels["levels_upper"]
-        if isinstance(levels_upper, tuple) and len(levels_upper) == 2:
-            return levels_upper
-    
-    return None
+def _render_error_count(value: float) -> str:
+    """Render error count as integer."""
+    return f"{int(value)}"
 
 
 def _create_device_description(device_path: str, model: str, serial: str, capacity_bytes: int) -> str:
@@ -204,75 +190,89 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                 
                 # Uncorrected errors
                 if uncorrected > 0:
-                    error_state = State.OK
                     param_key = f"{operation}_uncorrected_errors_abs"
-                    levels = _get_levels_from_params(params, param_key)
-                    if levels:
-                        warn, crit = levels
-                        if uncorrected >= crit:
-                            error_state = State.CRIT
-                        elif uncorrected >= warn:
-                            error_state = State.WARN
+                    levels_param = params.get(param_key)
+                    
+                    # Handle SimpleLevels format from rulesets
+                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                        levels_upper = ("fixed", levels_param['levels_upper'])
                     else:
                         # Default behavior - any uncorrected errors are critical
-                        error_state = State.CRIT
+                        levels_upper = ("fixed", (1, 1)) 
                     
-                    yield Result(state=error_state, summary=f"{operation.capitalize()} uncorrected: {uncorrected}")
+                    yield from check_levels(
+                        uncorrected,
+                        levels_upper=levels_upper,
+                        metric_name=f"{operation}_uncorrected_check",
+                        label=f"{operation.capitalize()} uncorrected errors",
+                        render_func=_render_error_count,
+                    )
                 
                 # ECC fast errors
                 if eccfast > 0:
-                    error_state = State.OK
                     param_key = f"{operation}_eccfast_errors_abs"
-                    levels = _get_levels_from_params(params, param_key)
-                    if levels:
-                        warn, crit = levels
-                        if eccfast >= crit:
-                            error_state = State.CRIT
-                        elif eccfast >= warn:
-                            error_state = State.WARN
+                    levels_param = params.get(param_key)
                     
-                    yield Result(state=error_state, summary=f"{operation.capitalize()} ECC fast: {eccfast}")
+                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                        yield from check_levels(
+                            eccfast,
+                            levels_upper=("fixed", levels_param['levels_upper']),
+                            metric_name=f"{operation}_eccfast_check",
+                            label=f"{operation.capitalize()} ECC fast errors",
+                            render_func=_render_error_count,
+                        )
+                    else:
+                        # No threshold configured - just report the value
+                        yield Result(state=State.OK, summary=f"{operation.capitalize()} ECC fast: {eccfast}")
                 
                 # ECC delayed errors
                 if eccdelayed > 0:
-                    error_state = State.OK
                     param_key = f"{operation}_eccdelayed_errors_abs"
-                    levels = _get_levels_from_params(params, param_key)
-                    if levels:
-                        warn, crit = levels
-                        if eccdelayed >= crit:
-                            error_state = State.CRIT
-                        elif eccdelayed >= warn:
-                            error_state = State.WARN
+                    levels_param = params.get(param_key)
                     
-                    yield Result(state=error_state, summary=f"{operation.capitalize()} ECC delayed: {eccdelayed}")
+                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                        yield from check_levels(
+                            eccdelayed,
+                            levels_upper=("fixed", levels_param['levels_upper']),
+                            metric_name=f"{operation}_eccdelayed_check",
+                            label=f"{operation.capitalize()} ECC delayed errors",
+                            render_func=_render_error_count,
+                        )
+                    else:
+                        # No threshold configured - just report the value
+                        yield Result(state=State.OK, summary=f"{operation.capitalize()} ECC delayed: {eccdelayed}")
                 
                 # Rereads/rewrites errors
                 if rereads > 0:
-                    error_state = State.OK
                     param_key = f"{operation}_rereads_rewrites_errors_abs"
-                    levels = _get_levels_from_params(params, param_key)
-                    if levels:
-                        warn, crit = levels
-                        if rereads >= crit:
-                            error_state = State.CRIT
-                        elif rereads >= warn:
-                            error_state = State.WARN
+                    levels_param = params.get(param_key)
                     
-                    yield Result(state=error_state, summary=f"{operation.capitalize()} rereads/rewrites: {rereads}")
+                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                        yield from check_levels(
+                            rereads,
+                            levels_upper=("fixed", levels_param['levels_upper']),
+                            metric_name=f"{operation}_rereads_rewrites_check",
+                            label=f"{operation.capitalize()} rereads/rewrites errors",
+                            render_func=_render_error_count,
+                        )
+                    else:
+                        # No threshold configured - just report the value
+                        yield Result(state=State.OK, summary=f"{operation.capitalize()} rereads/rewrites: {rereads}")
                 
                 # Algorithm invocations (only if configured)
-                param_key = f"{operation}_algorithm_invocations_abs"
-                levels = _get_levels_from_params(params, param_key)
-                if levels and algorithm_invocations > 0:
-                    error_state = State.OK
-                    warn, crit = levels
-                    if algorithm_invocations >= crit:
-                        error_state = State.CRIT
-                    elif algorithm_invocations >= warn:
-                        error_state = State.WARN
+                if algorithm_invocations > 0:
+                    param_key = f"{operation}_algorithm_invocations_abs"
+                    levels_param = params.get(param_key)
                     
-                    yield Result(state=error_state, summary=f"{operation.capitalize()} algorithm invocations: {algorithm_invocations}")
+                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                        yield from check_levels(
+                            algorithm_invocations,
+                            levels_upper=("fixed", levels_param['levels_upper']),
+                            metric_name=f"{operation}_algorithm_invocations_check",
+                            label=f"{operation.capitalize()} algorithm invocations",
+                            render_func=_render_error_count,
+                        )
+                    # If no levels configured, don't report algorithm invocations
     
     # Show operation-specific processed bytes
     if read_processed_gb > 0:
