@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- Fixed check_levels parameter handling to work correctly with CheckMK 2.3 SimpleLevels format
 
 ## 1.0.4 - 2025-08-08
 ### Changed

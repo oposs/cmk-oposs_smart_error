@@ -193,16 +193,14 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     param_key = f"{operation}_uncorrected_errors_abs"
                     levels_param = params.get(param_key)
                     
-                    # Handle SimpleLevels format from rulesets
-                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
-                        levels_upper = ("fixed", levels_param['levels_upper'])
-                    else:
+                    # SimpleLevels already produces ("fixed", (warn, crit)) format directly
+                    if levels_param is None:
                         # Default behavior - any uncorrected errors are critical
-                        levels_upper = ("fixed", (1, 1)) 
+                        levels_param = ("fixed", (1, 1))
                     
                     yield from check_levels(
                         uncorrected,
-                        levels_upper=levels_upper,
+                        levels_upper=levels_param,
                         metric_name=f"{operation}_uncorrected_check",
                         label=f"{operation.capitalize()} uncorrected errors",
                         render_func=_render_error_count,
@@ -213,10 +211,11 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     param_key = f"{operation}_eccfast_errors_abs"
                     levels_param = params.get(param_key)
                     
-                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                    if levels_param is not None:
+                        # SimpleLevels already produces ("fixed", (warn, crit)) format directly
                         yield from check_levels(
                             eccfast,
-                            levels_upper=("fixed", levels_param['levels_upper']),
+                            levels_upper=levels_param,
                             metric_name=f"{operation}_eccfast_check",
                             label=f"{operation.capitalize()} ECC fast errors",
                             render_func=_render_error_count,
@@ -230,10 +229,11 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     param_key = f"{operation}_eccdelayed_errors_abs"
                     levels_param = params.get(param_key)
                     
-                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                    if levels_param is not None:
+                        # SimpleLevels already produces ("fixed", (warn, crit)) format directly
                         yield from check_levels(
                             eccdelayed,
-                            levels_upper=("fixed", levels_param['levels_upper']),
+                            levels_upper=levels_param,
                             metric_name=f"{operation}_eccdelayed_check",
                             label=f"{operation.capitalize()} ECC delayed errors",
                             render_func=_render_error_count,
@@ -247,10 +247,11 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     param_key = f"{operation}_rereads_rewrites_errors_abs"
                     levels_param = params.get(param_key)
                     
-                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                    if levels_param is not None:
+                        # SimpleLevels already produces ("fixed", (warn, crit)) format directly
                         yield from check_levels(
                             rereads,
-                            levels_upper=("fixed", levels_param['levels_upper']),
+                            levels_upper=levels_param,
                             metric_name=f"{operation}_rereads_rewrites_check",
                             label=f"{operation.capitalize()} rereads/rewrites errors",
                             render_func=_render_error_count,
@@ -264,10 +265,11 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     param_key = f"{operation}_algorithm_invocations_abs"
                     levels_param = params.get(param_key)
                     
-                    if levels_param and isinstance(levels_param, dict) and 'levels_upper' in levels_param:
+                    if levels_param is not None:
+                        # SimpleLevels already produces ("fixed", (warn, crit)) format directly
                         yield from check_levels(
                             algorithm_invocations,
-                            levels_upper=("fixed", levels_param['levels_upper']),
+                            levels_upper=levels_param,
                             metric_name=f"{operation}_algorithm_invocations_check",
                             label=f"{operation.capitalize()} algorithm invocations",
                             render_func=_render_error_count,
