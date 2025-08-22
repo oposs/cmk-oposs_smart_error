@@ -171,6 +171,8 @@ The plugin provides detailed metrics for each operation type (read, write, verif
 5. **Write Operations - Relative (per TB)**: Write error rates
 6. **Verify Operations - Relative (per TB)**: Verify error rates
 
+![SMART Error Monitoring Graphs](.screenshot/smart-error-graphs.png)
+
 ## Troubleshooting
 
 ### No Services Discovered
