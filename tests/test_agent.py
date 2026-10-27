@@ -126,3 +126,39 @@ def test_mode_page_skipped_when_sg_modes_fails(agent, monkeypatch, capsys):
     }))
     agent.main()
     assert "bms_mode_page" not in _output_records(capsys)["/dev/sdc"]
+
+
+# --- timeout configured by the agent bakery ---------------------------------
+
+BAKERY = Path(__file__).parent.parent / "local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py"
+
+
+@pytest.fixture
+def bakery():
+    loader = SourceFileLoader("oposs_smart_error_bakery", str(BAKERY))
+    module = module_from_spec(spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    return module
+
+
+def _baked_config(bakery, conf):
+    files = list(bakery.get_oposs_smart_error_files(conf))
+    (config,) = [f for f in files if "lines" in f.kwargs]
+    return config.kwargs["target"], config.kwargs["lines"]
+
+
+def test_agent_reads_the_baked_timeout(agent, bakery, monkeypatch, tmp_path):
+    target, lines = _baked_config(bakery, {"timeout": 12.0})
+    (tmp_path / target).write_text("\n".join(lines))
+    monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / Path(agent.CONFIG_FILE).name))
+    assert agent.get_timeout() == 12
+
+
+def test_default_timeout_is_the_same_with_and_without_bakery(agent, bakery, monkeypatch, tmp_path):
+    target, lines = _baked_config(bakery, {})
+    monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / "missing.json"))
+    unbaked = agent.get_timeout()
+    (tmp_path / target).write_text("\n".join(lines))
+    monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / target))
+    assert agent.get_timeout() == unbaked
+

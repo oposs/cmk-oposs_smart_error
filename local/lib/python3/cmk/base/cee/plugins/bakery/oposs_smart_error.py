@@ -24,7 +24,7 @@ def get_oposs_smart_error_files(conf: Dict[str, Any]):
     
     # Get configuration values
     interval = int(conf.get("interval", 0))
-    timeout = conf.get("timeout", 30)
+    timeout = conf.get("timeout", 5)
 
     # Generate config file in JSON format
     config_content = json.dumps({"timeout": int(timeout)})

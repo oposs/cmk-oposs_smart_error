@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- The "Command execution timeout" set in the agent bakery rule "OPOSS
+  SMART Error Monitoring (smartctl)" had no effect: the bakery wrote the
+  setting to a file the agent plugin never read, so smartctl always ran with a
+  5 second timeout. The setting is now used, and the default stays 5
+  seconds with or without the rule.
 
 ## 1.0.5 - 2025-08-12
 ### Fixed

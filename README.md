@@ -99,7 +99,7 @@ After installing the MKP package or manually copying files:
 2. Create a new rule for **OPOSS SMART Error Monitoring (Linux)**
 3. Configure options:
    - **Enable**: Enable/disable monitoring
-   - **Timeout**: Command timeout in seconds (default: 30)
+   - **Timeout**: Command timeout in seconds (default: 5)
    - **Interval**: Execution interval in seconds (0 = every agent run)
 4. Assign the rule to target hosts
 5. Go to **Setup > Agents > Agent bakery** and bake agents
