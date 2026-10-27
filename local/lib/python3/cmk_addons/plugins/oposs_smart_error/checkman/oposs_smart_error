@@ -34,9 +34,11 @@ description:
  It is graphed, and gets a state only when a threshold rule is set.
 
 item:
- The device path (e.g. {/dev/sda})
+ The device path followed by the last 8 characters of the serial number in
+ brackets, for example {/dev/sda (2JG5LEHB)}. A disk behind a RAID controller
+ also carries its smartctl device type: {/dev/bus/0 megaraid,1 (2JG5LEHB)}.
 
 discovery:
  One service is created for each storage device that supports SCSI error
  counter logs and has meaningful error counter data available. Services
- are named "SMART Errors <device_path>" (e.g. "SMART Errors /dev/sda").
+ are named "SMART Errors <item>" (for example "SMART Errors /dev/sda (2JG5LEHB)").

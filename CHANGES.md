@@ -36,6 +36,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- The README named rules, fields and services that do not exist, such as
+  "OPOSS SMART Error Monitoring (Linux)", an "Enable" option, "Uncorrected
+  Errors per TB" and the service name "OPOSS SMART Errors /dev/sda", and
+  gave threshold defaults the rule does not use. README and the check
+  manual page now describe the actual rule fields, the default states and
+  the item format "/dev/sda (2JG5LEHB)".
 - Disks behind a RAID controller that smartctl reaches only with a device
   type, for example `-d megaraid,0`, got no service. The agent now uses
   the type that `smartctl --scan` reports, and such disks are discovered
