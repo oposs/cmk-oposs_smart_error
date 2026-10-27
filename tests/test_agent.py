@@ -203,3 +203,33 @@ def test_unusable_exit_status_is_reported(agent, monkeypatch, capsys, rc, reason
     assert line.startswith("/dev/sdc|ERROR|Failed to get SMART data")
     assert reason in line
     assert f"exit status {rc}" in line
+
+
+# --- drive identity ----------------------------------------------------------
+
+def test_sas_drive_model_and_firmware(agent, monkeypatch, capsys):
+    # smartctl names these fields differently for SCSI/SAS drives
+    info = {k: v for k, v in INFO.items() if k not in ("model_name", "firmware_version")}
+    info.update(scsi_vendor="WDC", scsi_product="WUH721818AL5204",
+                scsi_model_name="WDC WUH721818AL5204", scsi_revision="C680")
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(info)),
+        ("--log=background",): (0, "{}"),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["model"] == "WDC WUH721818AL5204"
+    assert data["firmware"] == "C680"
+
+
+def test_ata_style_model_and_firmware(agent, monkeypatch, capsys):
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(INFO)),
+        ("--log=background",): (0, "{}"),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["model"] == "WUH721818AL5204"
+    assert data["firmware"] == "C680"

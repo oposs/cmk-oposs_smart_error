@@ -36,6 +36,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- The "SMART Errors" service of SAS drives showed no drive model, only
+  capacity and serial number, for example "(16.4 TiB) S/N: 2JG5LEHB
+  (sdc)". It now starts with the model, and the agent also reports the
+  firmware revision of SAS drives.
 - The "SMART Errors" service went CRIT with "Error: Failed to get SMART
   data" for some drives that smartctl had read without trouble, for
   example when one of its log page reads failed. It now shows the

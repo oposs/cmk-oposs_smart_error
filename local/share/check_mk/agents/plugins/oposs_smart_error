@@ -147,9 +147,10 @@ def main():
         
         # Extract relevant data
         device_info = smart_data.get('device', {})
-        model_info = smart_data.get('model_name', '')
+        # SCSI/SAS drives report model and firmware under their own names
+        model_info = smart_data.get('model_name') or smart_data.get('scsi_model_name', '')
         serial_info = smart_data.get('serial_number', '')
-        firmware_info = smart_data.get('firmware_version', '')
+        firmware_info = smart_data.get('firmware_version') or smart_data.get('scsi_revision', '')
         capacity_info = smart_data.get('user_capacity', {})
         error_log = smart_data.get('scsi_error_counter_log', {})
         
