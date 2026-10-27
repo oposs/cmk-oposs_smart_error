@@ -162,3 +162,44 @@ def test_default_timeout_is_the_same_with_and_without_bakery(agent, bakery, monk
     monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / target))
     assert agent.get_timeout() == unbaked
 
+
+# --- smartctl exit status ----------------------------------------------------
+
+def _output_lines(capsys):
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "<<<oposs_smart_error:sep(124)>>>"
+    return lines[1:]
+
+
+# Bit 2 (a command failed) and bits 3 to 7 (drive health) still leave the JSON
+# complete, so the counters are reported.
+@pytest.mark.parametrize("rc", [4, 8, 64, 4 + 64, 4 + 128])
+def test_counters_reported_despite_exit_status(agent, monkeypatch, capsys, rc):
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (rc, json.dumps(INFO)),
+        ("--log=background",): (rc, json.dumps(BACKGROUND)),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["error_counters"] == INFO["scsi_error_counter_log"]
+    assert data["background_scan"] == BACKGROUND["scsi_background_scan"]
+
+
+# Bit 0 (command line not parsed) and bit 1 (device open failed) mean no data.
+@pytest.mark.parametrize("rc,reason", [
+    (1, "command line did not parse"),
+    (2, "device open failed"),
+    (2 + 4, "device open failed"),
+])
+def test_unusable_exit_status_is_reported(agent, monkeypatch, capsys, rc, reason):
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (rc, json.dumps(INFO)),
+    }))
+    agent.main()
+    (line,) = _output_lines(capsys)
+    assert line.startswith("/dev/sdc|ERROR|Failed to get SMART data")
+    assert reason in line
+    assert f"exit status {rc}" in line

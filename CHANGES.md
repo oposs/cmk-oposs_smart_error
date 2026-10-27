@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- The "SMART Errors" service went CRIT with "Error: Failed to get SMART
+  data" for some drives that smartctl had read without trouble, for
+  example when one of its log page reads failed. It now shows the
+  counters, and when there really is no data the message says why, for
+  example "device open failed (smartctl exit status 2)".
 - The "Command execution timeout" set in the agent bakery rule "OPOSS
   SMART Error Monitoring (smartctl)" had no effect: the bakery wrote the
   setting to a file the agent plugin never read, so smartctl always ran with a

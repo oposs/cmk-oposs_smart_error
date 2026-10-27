@@ -10,7 +10,7 @@ import json
 import os
 import shutil
 import subprocess
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "oposs_smart_error.json")
 
@@ -44,22 +44,46 @@ def get_smart_devices(timeout: int) -> List[Dict]:
         return []
 
 
-def get_smart_info_and_errors(device_name: str, timeout: int) -> Optional[Dict]:
-    """Get SMART device info and error log for a specific device"""
+# smartctl exit status bits after which its JSON holds no device data. The
+# other bits (a command failed, drive health, logged errors) come with
+# complete JSON.
+SMARTCTL_FATAL_BITS = {
+    0x01: "command line did not parse",
+    0x02: "device open failed",
+}
+
+
+def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], str]:
+    """Run smartctl with JSON output. Return (data, "") or (None, reason)."""
     try:
         result = subprocess.run(
-            ['smartctl', '--json=c', '--info', '--log=error', device_name],
+            ['smartctl', *args],
             capture_output=True,
             text=True,
             timeout=timeout
         )
-        if result.returncode not in [0, 1, 2, 4]:  # Allow some non-zero codes
-            return None
-        
+    except subprocess.TimeoutExpired:
+        return None, f"no answer within {timeout} s"
+    except FileNotFoundError:
+        return None, "smartctl not found"
+    rc = result.returncode
+    if rc < 0:
+        return None, f"smartctl killed by signal {-rc}"
+    reasons = [text for bit, text in SMARTCTL_FATAL_BITS.items() if rc & bit]
+    if reasons:
+        return None, f"{', '.join(reasons)} (smartctl exit status {rc})"
+    try:
         data = json.loads(result.stdout)
-        return data
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
-        return None
+    except json.JSONDecodeError:
+        return None, f"no JSON output (smartctl exit status {rc})"
+    if not isinstance(data, dict):
+        return None, f"unexpected JSON output (smartctl exit status {rc})"
+    return data, ""
+
+
+def get_smart_info_and_errors(device_name: str, timeout: int) -> Tuple[Optional[Dict], str]:
+    """Get SMART device info and error log for a specific device"""
+    return run_smartctl_json(['--json=c', '--info', '--log=error', device_name], timeout)
 
 
 def get_background_data(device_name: str, timeout: int) -> Dict:
@@ -68,17 +92,8 @@ def get_background_data(device_name: str, timeout: int) -> Dict:
     Runs as a separate smartctl call so that a drive which cannot answer it
     still reports its error counters.
     """
-    try:
-        result = subprocess.run(
-            ['smartctl', '--json=c', '--log=background', '--attributes', device_name],
-            capture_output=True,
-            text=True,
-            timeout=timeout
-        )
-        if result.returncode not in [0, 1, 2, 4]:
-            return {}
-        data = json.loads(result.stdout)
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+    data, _ = run_smartctl_json(['--json=c', '--log=background', '--attributes', device_name], timeout)
+    if data is None:
         return {}
 
     background = {}
@@ -125,9 +140,9 @@ def main():
         if not device_name:
             continue
             
-        smart_data = get_smart_info_and_errors(device_name, timeout)
+        smart_data, reason = get_smart_info_and_errors(device_name, timeout)
         if smart_data is None:
-            print(f"{device_name}|ERROR|Failed to get SMART data")
+            print(f"{device_name}|ERROR|Failed to get SMART data: {reason}")
             continue
         
         # Extract relevant data
