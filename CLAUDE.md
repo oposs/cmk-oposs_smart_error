@@ -55,19 +55,24 @@ from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
 
 ## Metrics Generated
 
+All metric names start with `oposs_smart_error_`. The unprefixed names used
+up to 1.0.5 are mapped onto them in `graphing/translations.py`, which keeps the
+old RRD history in the graphs.
+
 ### Per Operation (read/write/verify) - 6 metrics each:
-- `{operation}_errors_corrected_by_eccfast`
-- `{operation}_errors_corrected_by_eccdelayed`
-- `{operation}_errors_corrected_by_rereads_rewrites`
-- `{operation}_correction_algorithm_invocations`
-- `{operation}_bytes_processed`
-- `{operation}_total_uncorrected_errors`
+- `oposs_smart_error_{operation}_errors_corrected_by_eccfast`
+- `oposs_smart_error_{operation}_errors_corrected_by_eccdelayed`
+- `oposs_smart_error_{operation}_errors_corrected_by_rereads_rewrites`
+- `oposs_smart_error_{operation}_correction_algorithm_invocations`
+- `oposs_smart_error_{operation}_bytes_processed`
+- `oposs_smart_error_{operation}_total_uncorrected_errors`
 
-### Per Operation Rate (per TB) - 5 metrics each:
-- Same as above except bytes_processed, divided by TB processed
+### Per Operation Rate (per TB) - 4 metrics each:
+- The first four above with `_per_tb`, divided by TB processed
 
-### Summary Metrics:
-- `total_bytes_processed` (only informational metric - error totals are redundant)
+### Other:
+- `oposs_smart_error_grown_defects`
+- `oposs_smart_bms_*` for the background scan service
 
 ## Key Implementation Details
 

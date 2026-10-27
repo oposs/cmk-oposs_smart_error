@@ -164,20 +164,20 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
             verify_processed_gb += processed_gb
         
         # Generate detailed absolute metrics (6 values - excluding redundant total_errors_corrected)
-        yield Metric(f"{operation}_errors_corrected_by_eccfast", eccfast)
-        yield Metric(f"{operation}_errors_corrected_by_eccdelayed", eccdelayed)
-        yield Metric(f"{operation}_errors_corrected_by_rereads_rewrites", rereads)
-        yield Metric(f"{operation}_correction_algorithm_invocations", algorithm_invocations)
-        yield Metric(f"{operation}_bytes_processed", processed_bytes)
-        yield Metric(f"{operation}_total_uncorrected_errors", uncorrected)
+        yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_eccfast", eccfast)
+        yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_eccdelayed", eccdelayed)
+        yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_rereads_rewrites", rereads)
+        yield Metric(f"oposs_smart_error_{operation}_correction_algorithm_invocations", algorithm_invocations)
+        yield Metric(f"oposs_smart_error_{operation}_bytes_processed", processed_bytes)
+        yield Metric(f"oposs_smart_error_{operation}_total_uncorrected_errors", uncorrected)
         
         # Generate detailed relative metrics per TB (4 values - excluding uncorrected errors)
         if processed_gb > 0:
             processed_tb = processed_gb / 1024  # Convert GB to TB
-            yield Metric(f"{operation}_errors_corrected_by_eccfast_per_tb", eccfast / processed_tb)
-            yield Metric(f"{operation}_errors_corrected_by_eccdelayed_per_tb", eccdelayed / processed_tb)
-            yield Metric(f"{operation}_errors_corrected_by_rereads_rewrites_per_tb", rereads / processed_tb)
-            yield Metric(f"{operation}_correction_algorithm_invocations_per_tb", algorithm_invocations / processed_tb)
+            yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_eccfast_per_tb", eccfast / processed_tb)
+            yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_eccdelayed_per_tb", eccdelayed / processed_tb)
+            yield Metric(f"oposs_smart_error_{operation}_errors_corrected_by_rereads_rewrites_per_tb", rereads / processed_tb)
+            yield Metric(f"oposs_smart_error_{operation}_correction_algorithm_invocations_per_tb", algorithm_invocations / processed_tb)
     
     
     # Device info summary
@@ -223,7 +223,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                     yield from check_levels(
                         uncorrected,
                         levels_upper=levels_param,
-                        metric_name=f"{operation}_uncorrected_check",
                         label=f"{operation.capitalize()} uncorrected errors",
                         render_func=_render_error_count,
                     )
@@ -238,7 +237,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                         yield from check_levels(
                             eccfast,
                             levels_upper=levels_param,
-                            metric_name=f"{operation}_eccfast_check",
                             label=f"{operation.capitalize()} ECC fast errors",
                             render_func=_render_error_count,
                         )
@@ -256,7 +254,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                         yield from check_levels(
                             eccdelayed,
                             levels_upper=levels_param,
-                            metric_name=f"{operation}_eccdelayed_check",
                             label=f"{operation.capitalize()} ECC delayed errors",
                             render_func=_render_error_count,
                         )
@@ -274,7 +271,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                         yield from check_levels(
                             rereads,
                             levels_upper=levels_param,
-                            metric_name=f"{operation}_rereads_rewrites_check",
                             label=f"{operation.capitalize()} rereads/rewrites errors",
                             render_func=_render_error_count,
                         )
@@ -292,7 +288,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
                         yield from check_levels(
                             algorithm_invocations,
                             levels_upper=levels_param,
-                            metric_name=f"{operation}_algorithm_invocations_check",
                             label=f"{operation.capitalize()} algorithm invocations",
                             render_func=_render_error_count,
                         )

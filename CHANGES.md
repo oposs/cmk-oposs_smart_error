@@ -21,6 +21,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   minimum idle time.
 
 ### Changed
+- The metrics of the "SMART Errors" service now start with
+  `oposs_smart_error_`, for example `read_bytes_processed` is now
+  `oposs_smart_error_read_bytes_processed`, so the package keeps loading
+  on Checkmk 3.0. The service graphs still show the history recorded under
+  the old names. Custom graphs, dashboards and metric exports (for example
+  InfluxDB) that use the old names must be changed to the new ones.
+- The "SMART Errors" service no longer records the metrics
+  `read_uncorrected_check`, `read_eccfast_check` and the like, which
+  repeated the error counters already graphed. Their stand-alone graphs
+  stop getting new data.
 - Licence is now GNU General Public License v2, aligning this plugin
   with the rest of the OPOSS Checkmk plugin set. The `LICENSE` file
   previously held the MIT text.
