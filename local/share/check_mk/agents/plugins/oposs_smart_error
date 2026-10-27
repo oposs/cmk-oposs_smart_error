@@ -81,18 +81,36 @@ def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], st
     return data, ""
 
 
-def get_smart_info_and_errors(device_name: str, timeout: int) -> Tuple[Optional[Dict], str]:
+def device_args(device: Dict) -> List[str]:
+    """smartctl arguments addressing a scanned device, with the type the scan found"""
+    if device.get('type'):
+        return ['-d', device['type'], device['name']]
+    return [device['name']]
+
+
+def device_key(device: Dict) -> str:
+    """Name a scanned device uniquely.
+
+    Disks behind a RAID controller share one device name and differ only in
+    the type (megaraid,0, megaraid,1, ...). Plain devices keep their name.
+    """
+    if ',' in device.get('type', ''):
+        return f"{device['name']} {device['type']}"
+    return device['name']
+
+
+def get_smart_info_and_errors(device: Dict, timeout: int) -> Tuple[Optional[Dict], str]:
     """Get SMART device info and error log for a specific device"""
-    return run_smartctl_json(['--json=c', '--info', '--log=error', device_name], timeout)
+    return run_smartctl_json(['--json=c', '--info', '--log=error', *device_args(device)], timeout)
 
 
-def get_background_data(device_name: str, timeout: int) -> Dict:
+def get_background_data(device: Dict, timeout: int) -> Dict:
     """Get background medium scan log, power-on time and grown defect count.
 
     Runs as a separate smartctl call so that a drive which cannot answer it
     still reports its error counters.
     """
-    data, _ = run_smartctl_json(['--json=c', '--log=background', '--attributes', device_name], timeout)
+    data, _ = run_smartctl_json(['--json=c', '--log=background', '--attributes', *device_args(device)], timeout)
     if data is None:
         return {}
 
@@ -136,11 +154,11 @@ def main():
     print("<<<oposs_smart_error:sep(124)>>>")
 
     for device in devices:
-        device_name = device.get('name', '')
-        if not device_name:
+        if not device.get('name'):
             continue
-            
-        smart_data, reason = get_smart_info_and_errors(device_name, timeout)
+        device_name = device_key(device)
+
+        smart_data, reason = get_smart_info_and_errors(device, timeout)
         if smart_data is None:
             print(f"{device_name}|ERROR|Failed to get SMART data: {reason}")
             continue
@@ -177,7 +195,7 @@ def main():
         
         # Create compact JSON output with friendly info
         output_data = {
-            'device': device_info.get('name', device_name),
+            'device': device_name,
             'protocol': device_info.get('protocol', 'unknown'),
             'model': model_info,
             'serial': serial_info,
@@ -187,9 +205,10 @@ def main():
         }
 
         # Background medium scan (BMS) status and results, SAS drives only
-        output_data.update(get_background_data(device_name, timeout))
-        if 'background_scan' in output_data:
-            mode_page = get_bms_mode_page(device_name, timeout)
+        output_data.update(get_background_data(device, timeout))
+        # sg_modes cannot reach a disk behind a RAID controller; it would ask the controller
+        if 'background_scan' in output_data and device_name == device['name']:
+            mode_page = get_bms_mode_page(device['name'], timeout)
             if mode_page:
                 output_data['bms_mode_page'] = mode_page
         

@@ -50,8 +50,8 @@ def _create_device_description(device_path: str, model: str, serial: str, capaci
         parts.append(f"S/N: {serial_short}")
     
     if parts:
-        # Extract device name from path (e.g., sda from /dev/sda)
-        device_name = device_path.split('/')[-1] if '/' in device_path else device_path
+        # Drop the /dev/ prefix (sda from /dev/sda, bus/0 megaraid,1 from /dev/bus/0 megaraid,1)
+        device_name = device_path[len("/dev/"):] if device_path.startswith("/dev/") else device_path
         return f"{' '.join(parts)} ({device_name})"
     else:
         return device_path

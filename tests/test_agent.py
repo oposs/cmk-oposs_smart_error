@@ -233,3 +233,60 @@ def test_ata_style_model_and_firmware(agent, monkeypatch, capsys):
     data = _output_records(capsys)["/dev/sdc"]
     assert data["model"] == "WUH721818AL5204"
     assert data["firmware"] == "C680"
+
+
+# --- device type from the scan ----------------------------------------------
+
+def _recording_run(info_by_type, calls):
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "--scan" in cmd:
+            out = json.dumps(MEGARAID_SCAN)
+        elif cmd[0] == "sg_modes":
+            out = MODE_PAGE
+        elif "--log=error" in cmd:
+            out = json.dumps(info_by_type[cmd[cmd.index("-d") + 1]])
+        else:
+            out = json.dumps(BACKGROUND)
+        return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+    return run
+
+
+MEGARAID_SCAN = {"devices": [
+    {"name": "/dev/sdc", "info_name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"},
+    {"name": "/dev/bus/0", "info_name": "/dev/bus/0 [megaraid_disk_00]", "type": "megaraid,0", "protocol": "SCSI"},
+    {"name": "/dev/bus/0", "info_name": "/dev/bus/0 [megaraid_disk_01]", "type": "megaraid,1", "protocol": "SCSI"},
+]}
+
+
+def _info(serial):
+    return dict(INFO, serial_number=serial)
+
+
+def test_scan_device_type_is_used(agent, monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
+    monkeypatch.setattr(agent.subprocess, "run", _recording_run(
+        {"scsi": _info("A"), "megaraid,0": _info("B"), "megaraid,1": _info("C")}, calls))
+    agent.main()
+    records = _output_records(capsys)
+    # A plain device keeps its name, so existing services keep their item
+    assert sorted(records) == ["/dev/bus/0 megaraid,0", "/dev/bus/0 megaraid,1", "/dev/sdc"]
+    assert records["/dev/bus/0 megaraid,1"]["serial"] == "C"
+    assert records["/dev/bus/0 megaraid,1"]["device"] == "/dev/bus/0 megaraid,1"
+    smartctl = [c for c in calls if c[0] == "smartctl" and "--scan" not in c]
+    assert all(c[-3] == "-d" for c in smartctl)
+    assert ["-d", "megaraid,1", "/dev/bus/0"] in [c[-3:] for c in smartctl]
+
+
+def test_mode_page_not_read_behind_raid_controller(agent, monkeypatch, capsys):
+    # sg_modes on /dev/bus/0 would ask the controller, not the disk
+    calls = []
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
+    monkeypatch.setattr(agent.subprocess, "run", _recording_run(
+        {"scsi": _info("A"), "megaraid,0": _info("B"), "megaraid,1": _info("C")}, calls))
+    agent.main()
+    records = _output_records(capsys)
+    assert "bms_mode_page" in records["/dev/sdc"]
+    assert "bms_mode_page" not in records["/dev/bus/0 megaraid,0"]
+    assert [c[-1] for c in calls if c[0] == "sg_modes"] == ["/dev/sdc"]

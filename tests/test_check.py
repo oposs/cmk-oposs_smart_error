@@ -286,3 +286,15 @@ def test_grown_defects_levels(check):
 def test_error_check_without_grown_defects_unchanged(check):
     out = _errors(check, _device())
     assert "oposs_smart_error_grown_defects" not in _metrics(out)
+
+
+def test_raid_member_items_are_unique(check):
+    lines = [
+        ["/dev/bus/0 megaraid,0", json.dumps(_device(device="/dev/bus/0 megaraid,0", serial="B"))],
+        ["/dev/bus/0 megaraid,1", json.dumps(_device(device="/dev/bus/0 megaraid,1", serial="C"))],
+    ]
+    section = check.parse_oposs_smart_error(lines)
+    items = [s.item for s in check.discover_oposs_smart_error(section)]
+    assert items == ["/dev/bus/0 megaraid,0 (B)", "/dev/bus/0 megaraid,1 (C)"]
+    out = list(check.check_oposs_smart_error(items[1], {}, section))
+    assert "(bus/0 megaraid,1)" in " ".join(r.summary for r in _results(out))

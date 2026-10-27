@@ -36,6 +36,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- Disks behind a RAID controller that smartctl reaches only with a device
+  type, for example `-d megaraid,0`, got no service. The agent now uses
+  the type that `smartctl --scan` reports, and such disks are discovered
+  as "SMART Errors /dev/bus/0 megaraid,0 (<serial>)". Services of other
+  disks keep their names.
 - The "SMART Errors" service of SAS drives showed no drive model, only
   capacity and serial number, for example "(16.4 TiB) S/N: 2JG5LEHB
   (sdc)". It now starts with the model, and the agent also reports the
