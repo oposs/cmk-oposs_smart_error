@@ -136,3 +136,9 @@ def test_old_names_translate_to_declared_metrics(graphing_objects, declared):
     for old, rule in translation.translations.items():
         assert rule == translations.RenameTo(f"oposs_smart_error_{old}")
         assert rule.metric_name in declared
+
+
+def test_every_error_metric_is_emitted(emitted, declared):
+    # The background scan metrics come from the other check
+    error_metrics = {n for n in declared if n.startswith("oposs_smart_error_")}
+    assert sorted(error_metrics - set(emitted)) == []

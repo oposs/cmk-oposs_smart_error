@@ -187,12 +187,6 @@ metric_oposs_smart_error_read_correction_algorithm_invocations_per_tb = Metric(
     color=Color.LIGHT_PINK,
 )
 
-metric_oposs_smart_error_read_total_uncorrected_errors_per_tb = Metric(
-    name="oposs_smart_error_read_total_uncorrected_errors_per_tb",
-    title=Title("Read Uncorrected Errors per TB"),
-    unit=unit_count,
-    color=Color.DARK_RED,
-)
 
 # Detailed rate metrics for WRITE operations (per TB)
 metric_oposs_smart_error_write_errors_corrected_by_eccfast_per_tb = Metric(
@@ -223,12 +217,6 @@ metric_oposs_smart_error_write_correction_algorithm_invocations_per_tb = Metric(
     color=Color.LIGHT_GRAY,
 )
 
-metric_oposs_smart_error_write_total_uncorrected_errors_per_tb = Metric(
-    name="oposs_smart_error_write_total_uncorrected_errors_per_tb",
-    title=Title("Write Uncorrected Errors per TB"),
-    unit=unit_count,
-    color=Color.DARK_RED,
-)
 
 # Detailed rate metrics for VERIFY operations (per TB)
 metric_oposs_smart_error_verify_errors_corrected_by_eccfast_per_tb = Metric(
@@ -259,12 +247,6 @@ metric_oposs_smart_error_verify_correction_algorithm_invocations_per_tb = Metric
     color=Color.DARK_GRAY,
 )
 
-metric_oposs_smart_error_verify_total_uncorrected_errors_per_tb = Metric(
-    name="oposs_smart_error_verify_total_uncorrected_errors_per_tb",
-    title=Title("Verify Uncorrected Errors per TB"),
-    unit=unit_count,
-    color=Color.DARK_RED,
-)
 
 
 # Graph definitions - 6 combined graphs with detailed metrics
