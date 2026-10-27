@@ -1,0 +1,41 @@
+title: SMART: Background Medium Scan
+agents: linux
+catalog: os/storage
+license: GPL
+distribution: check_mk
+description:
+ SAS drives read their whole surface on their own while idle. This is the
+ background medium scan (BMS). The drive logs every sector it could not read
+ and whether it could reassign or rewrite that sector with the data intact.
+
+ This check shows the scan status, the scan progress and the number of
+ completed scans. It reports the lifetime average time per scan and the time
+ since the scan counter last went up. All times are drive power-on time. The
+ drive does not log when a scan finished, so the check records the power-on
+ time at which it sees the counter go up. Until it has seen that once, it
+ shows the time as a lower bound.
+
+ Medium errors in the scan log go CRIT when they are unrecovered and WARN
+ when the drive recovered the sector, for 7 days of power-on time after the
+ entry. Older entries are OK. An unrecovered sector on storage with
+ redundancy (Ceph, ZFS, RAID) should be rewritten from the redundant copy,
+ for example with a deep scrub.
+
+ A status of "no scans active" means background scanning is off on the
+ drive and gives WARN. A halted scan gives WARN or CRIT, depending on the
+ cause.
+
+ If {sg_modes} from the {sg3-utils} package is installed, the check also
+ shows the BMS settings of the drive: enabled or not, the scan interval, the
+ pre-scan setting and the minimum idle time before a scan starts.
+
+ All states and the time levels can be changed with the rule
+ "SMART Background Medium Scan".
+
+item:
+ The device path and the last 8 characters of the serial number
+ (for example {/dev/sdc (2JG5LEHB)}).
+
+discovery:
+ One service is created for each drive that reports a background scan
+ results log, usually SAS hard disks.

@@ -15,6 +15,7 @@ A comprehensive CheckMK plugin for monitoring SMART error counters on storage de
 
 - CheckMK 2.3.0 or later
 - `smartmontools` package installed on target hosts
+- Optional: `sg3-utils` on target hosts, to show the background scan settings of SAS drives
 - Storage devices supporting SCSI error counter logs (most enterprise drives)
 
 ## Download
@@ -146,6 +147,26 @@ Example service output:
 ```
 WDC WD4003FZEX-00Z4SA0 (4.00 TB) S/N: WD-WMC130: Corrected: 125 ECC fast, 31 ECC delayed, 12.3 TB processed
 ```
+
+## Background medium scan (SAS drives)
+
+SAS drives read their whole surface on their own while idle and log every
+sector they could not read. For each drive with such a log, the plugin adds a
+**SMART Background Scan <device>** service:
+
+- Scan status and progress. "No scans active" (scanning off on the drive) is WARN, a halted scan is WARN or CRIT.
+- Completed scans, the lifetime average time per scan, and the time since the
+  last completed scan (WARN after 90 days, CRIT after 365 days of power-on time).
+- Medium errors found by the scan: CRIT for unrecovered and WARN for recovered
+  sectors logged in the last 7 days of power-on time, OK for older entries.
+- With `sg3-utils` installed: whether scanning is enabled, the scan interval
+  and the minimum idle time before a scan starts.
+
+Change the levels and states with the rule **SMART Background Medium Scan**.
+
+The **SMART Errors** service of SAS drives also shows the grown defect list
+count. Set levels for it with **Grown Defect List Entries** in the
+**SMART Error Monitoring** rule.
 
 ## Metrics and Graphing
 

@@ -1,0 +1,128 @@
+"""Tests for the agent plugin (runs on the monitored host)."""
+
+import json
+import subprocess
+from importlib.machinery import SourceFileLoader
+from importlib.util import module_from_spec, spec_from_loader
+from pathlib import Path
+
+import pytest
+
+AGENT = Path(__file__).parent.parent / "local/share/check_mk/agents/plugins/oposs_smart_error"
+
+# Real MODE SENSE(10) response for page 0x1c/1 from a WUH721818AL5204
+MODE_PAGE = bytes.fromhex(
+    "001e001000000008ffffffff00000200"
+    "dc01000c010003f00000000000000000"
+)
+
+SCAN = {"devices": [{"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"}]}
+
+INFO = {
+    "device": {"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"},
+    "model_name": "WUH721818AL5204",
+    "serial_number": "2JG5LEHB",
+    "firmware_version": "C680",
+    "user_capacity": {"bytes": 18000207937536},
+    "scsi_error_counter_log": {
+        "read": {"total_errors_corrected": 321, "total_uncorrected_errors": 0},
+    },
+}
+
+BACKGROUND = {
+    "power_on_time": {"hours": 39841, "minutes": 21},
+    "scsi_grown_defect_list": 0,
+    "scsi_background_scan": {
+        "status": {
+            "value": 8,
+            "string": "waiting until BMS interval timer expires",
+            "number_scans_performed": 35,
+            "scan_progress": "0.00%",
+            "number_medium_scans_performed": 35,
+        }
+    },
+}
+
+
+@pytest.fixture
+def agent():
+    loader = SourceFileLoader("oposs_smart_error_agent", str(AGENT))
+    module = module_from_spec(spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    return module
+
+
+def _fake_run(responses):
+    """Return a subprocess.run replacement answering by argv."""
+
+    def run(cmd, **kwargs):
+        for match, (rc, out) in responses.items():
+            if all(part in cmd for part in match):
+                if kwargs.get("text"):
+                    out = out if isinstance(out, str) else out.decode()
+                return subprocess.CompletedProcess(cmd, rc, stdout=out, stderr="")
+        raise FileNotFoundError(cmd[0])
+
+    return run
+
+
+def _output_records(capsys):
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "<<<oposs_smart_error:sep(124)>>>"
+    return {line.split("|", 1)[0]: json.loads(line.split("|", 1)[1]) for line in lines[1:]}
+
+
+def test_background_scan_data_is_added(agent, monkeypatch, capsys):
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(INFO)),
+        ("--log=background",): (0, json.dumps(BACKGROUND)),
+        ("sg_modes",): (0, MODE_PAGE),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["error_counters"] == INFO["scsi_error_counter_log"]
+    assert data["background_scan"] == BACKGROUND["scsi_background_scan"]
+    assert data["power_on_minutes"] == 39841 * 60 + 21
+    assert data["grown_defects"] == 0
+    assert data["bms_mode_page"] == MODE_PAGE.hex()
+
+
+def test_failing_background_query_keeps_error_counters(agent, monkeypatch, capsys):
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(INFO)),
+        ("--log=background",): (64 + 128, "not json"),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["error_counters"] == INFO["scsi_error_counter_log"]
+    assert "background_scan" not in data
+    assert "bms_mode_page" not in data
+
+
+def test_mode_page_skipped_without_sg_modes(agent, monkeypatch, capsys):
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(INFO)),
+        ("--log=background",): (0, json.dumps(BACKGROUND)),
+    }))
+    agent.main()
+    data = _output_records(capsys)["/dev/sdc"]
+    assert data["background_scan"]["status"]["value"] == 8
+    assert "bms_mode_page" not in data
+
+
+def test_mode_page_skipped_when_sg_modes_fails(agent, monkeypatch, capsys):
+    monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(INFO)),
+        ("--log=background",): (0, json.dumps(BACKGROUND)),
+        ("sg_modes",): (5, b""),
+    }))
+    agent.main()
+    assert "bms_mode_page" not in _output_records(capsys)["/dev/sdc"]

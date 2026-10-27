@@ -8,6 +8,7 @@ Compatible with CheckMK 2.3
 
 import json
 import os
+import shutil
 import subprocess
 from typing import Dict, List, Optional
 
@@ -59,6 +60,53 @@ def get_smart_info_and_errors(device_name: str, timeout: int) -> Optional[Dict]:
         return data
     except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
         return None
+
+
+def get_background_data(device_name: str, timeout: int) -> Dict:
+    """Get background medium scan log, power-on time and grown defect count.
+
+    Runs as a separate smartctl call so that a drive which cannot answer it
+    still reports its error counters.
+    """
+    try:
+        result = subprocess.run(
+            ['smartctl', '--json=c', '--log=background', '--attributes', device_name],
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+        if result.returncode not in [0, 1, 2, 4]:
+            return {}
+        data = json.loads(result.stdout)
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        return {}
+
+    background = {}
+    if isinstance(data.get('scsi_background_scan'), dict):
+        background['background_scan'] = data['scsi_background_scan']
+    power_on = data.get('power_on_time')
+    if isinstance(power_on, dict) and 'hours' in power_on:
+        background['power_on_minutes'] = power_on['hours'] * 60 + power_on.get('minutes', 0)
+    if isinstance(data.get('scsi_grown_defect_list'), int):
+        background['grown_defects'] = data['scsi_grown_defect_list']
+    return background
+
+
+def get_bms_mode_page(device_name: str, timeout: int) -> Optional[str]:
+    """Get the Background Control mode page (0x1c/1) as hex, if sg_modes is installed"""
+    if not shutil.which('sg_modes'):
+        return None
+    try:
+        result = subprocess.run(
+            ['sg_modes', '-r', '-p', '0x1c,1', device_name],
+            capture_output=True,
+            timeout=timeout
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if result.returncode != 0 or not result.stdout:
+        return None
+    return result.stdout.hex()
 
 
 def main():
@@ -121,6 +169,13 @@ def main():
             'capacity_bytes': capacity_info.get('bytes', 0) if isinstance(capacity_info, dict) else 0,
             'error_counters': error_log
         }
+
+        # Background medium scan (BMS) status and results, SAS drives only
+        output_data.update(get_background_data(device_name, timeout))
+        if 'background_scan' in output_data:
+            mode_page = get_bms_mode_page(device_name, timeout)
+            if mode_page:
+                output_data['bms_mode_page'] = mode_page
         
         print(f"{device_name}|{json.dumps(output_data, separators=(',', ':'))}")
 

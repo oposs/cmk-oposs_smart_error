@@ -12,6 +12,7 @@ from cmk.graphing.v1.metrics import (
     DecimalNotation,
     IECNotation,
     Metric,
+    TimeNotation,
     Unit,
 )
 from cmk.graphing.v1.graphs import (
@@ -379,4 +380,77 @@ perfometer_oposs_smart_error = Perfometer(
         "write_total_uncorrected_errors", 
         "verify_total_uncorrected_errors",
     ],
+)
+
+# Grown defect list
+metric_oposs_smart_error_grown_defects = Metric(
+    name="oposs_smart_error_grown_defects",
+    title=Title("Grown Defect List Entries"),
+    unit=unit_count,
+    color=Color.RED,
+)
+
+# Background medium scan
+unit_percent = Unit(DecimalNotation("%"))
+unit_time = Unit(TimeNotation())
+
+metric_oposs_smart_bms_scan_progress = Metric(
+    name="oposs_smart_bms_scan_progress",
+    title=Title("Background Scan Progress"),
+    unit=unit_percent,
+    color=Color.BLUE,
+)
+
+metric_oposs_smart_bms_scans_performed = Metric(
+    name="oposs_smart_bms_scans_performed",
+    title=Title("Background Scans Performed"),
+    unit=unit_count,
+    color=Color.GREEN,
+)
+
+metric_oposs_smart_bms_lifetime_scan_interval = Metric(
+    name="oposs_smart_bms_lifetime_scan_interval",
+    title=Title("Background Scan Interval (Lifetime Average)"),
+    unit=unit_time,
+    color=Color.GRAY,
+)
+
+metric_oposs_smart_bms_last_scan_age = Metric(
+    name="oposs_smart_bms_last_scan_age",
+    title=Title("Time Since Last Completed Background Scan"),
+    unit=unit_time,
+    color=Color.ORANGE,
+)
+
+metric_oposs_smart_bms_medium_errors = Metric(
+    name="oposs_smart_bms_medium_errors",
+    title=Title("Medium Errors Logged by Background Scan"),
+    unit=unit_count,
+    color=Color.RED,
+)
+
+graph_oposs_smart_bms_progress = Graph(
+    name="oposs_smart_bms_progress",
+    title=Title("SMART Background Scan - Progress"),
+    minimal_range=MinimalRange(0, 100),
+    simple_lines=["oposs_smart_bms_scan_progress"],
+)
+
+graph_oposs_smart_bms_timing = Graph(
+    name="oposs_smart_bms_timing",
+    title=Title("SMART Background Scan - Time Since Last Scan"),
+    minimal_range=MinimalRange(0, 86400),
+    simple_lines=[
+        "oposs_smart_bms_last_scan_age",
+        "oposs_smart_bms_lifetime_scan_interval",
+    ],
+)
+
+perfometer_oposs_smart_bms = Perfometer(
+    name="oposs_smart_bms",
+    focus_range=FocusRange(
+        lower=Closed(0),
+        upper=Closed(100),
+    ),
+    segments=["oposs_smart_bms_scan_progress"],
 )

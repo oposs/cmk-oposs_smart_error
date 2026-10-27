@@ -25,9 +25,13 @@ description:
  errors corrected by ECC fast/delayed, errors corrected by rereads/rewrites,
  correction algorithm invocations, bytes processed, and total uncorrected errors.
  
- The service output shows individual error types (e.g., "Read ECC fast: 5") 
- with their own states based on configured thresholds, plus data processed 
- per operation type.
+ The service output shows individual error types (for example
+ "Read ECC fast: 5") with their own states based on configured thresholds,
+ plus data processed per operation type.
+
+ For SAS drives the check also shows the number of entries in the grown
+ defect list, the sectors the drive has remapped since it left the factory.
+ It is graphed, and gets a state only when a threshold rule is set.
 
 item:
  The device path (e.g. {/dev/sda})
