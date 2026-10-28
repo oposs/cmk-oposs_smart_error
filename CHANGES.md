@@ -10,9 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### New
 - New service "SMART Background Scan <device>" for SAS drives. It shows
   how often the drive's own background surface scan completes, its
-  progress, and the unreadable sectors it found: CRIT for unrecovered
-  ones and WARN for recovered ones in the last 7 days, configurable in
-  the rule "SMART Background Medium Scan".
+  progress, and the unreadable sectors it found. By default it is CRIT
+  for unrecovered sectors and WARN for recovered ones found in the last
+  7 days, WARN when no scan is active, WARN or CRIT for a halted scan,
+  and WARN after 90 days and CRIT after 365 days of power-on time
+  without a completed scan; the rule "SMART Background Medium Scan"
+  changes these.
 - The "SMART Errors" service of SAS drives shows and graphs the number of
   grown defect list entries. The new "Grown Defect List Entries" field in
   the "SMART Error Monitoring" rule sets levels for it.
@@ -45,8 +48,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Disks behind a RAID controller that smartctl reaches only with a device
   type, for example `-d megaraid,0`, got no service. The agent now uses
   the type that `smartctl --scan` reports, and such disks are discovered
-  as "SMART Errors /dev/bus/0 megaraid,0 (<serial>)". Services of other
-  disks keep their names.
+  as "SMART Errors /dev/bus/0 megaraid,0 (<serial>)". A disk that also
+  appears as a plain device such as /dev/sdb (JBOD) keeps only that
+  service, and services of other disks keep their names.
 - The "SMART Errors" service of SAS drives showed no drive model, only
   capacity and serial number, for example "(16.4 TiB) S/N: 2JG5LEHB
   (sdc)". It now starts with the model, and the agent also reports the
@@ -59,8 +63,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "Command execution timeout" set in the agent bakery rule "OPOSS
   SMART Error Monitoring (smartctl)" had no effect: the bakery wrote the
   setting to a file the agent plugin never read, so smartctl always ran with a
-  5 second timeout. The setting is now used, and the default stays 5
-  seconds with or without the rule.
+  5 second timeout. The setting is now used, values below 1 second are
+  refused, and the default stays 5 seconds with or without the rule.
 
 ## 1.0.5 - 2025-08-12
 ### Fixed

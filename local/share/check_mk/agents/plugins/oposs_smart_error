@@ -21,8 +21,8 @@ def get_timeout() -> int:
     try:
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
-        return config.get("timeout", 5)
-    except (json.JSONDecodeError, IOError):
+        return max(1, int(config.get("timeout", 5)))
+    except (json.JSONDecodeError, IOError, TypeError, ValueError):
         return 5
 
 
@@ -153,6 +153,12 @@ def main():
 
     print("<<<oposs_smart_error:sep(124)>>>")
 
+    # A JBOD disk on a RAID controller is listed twice, as /dev/sdX and as
+    # /dev/bus/N with a megaraid,N type. Plain devices go first, and a RAID
+    # path whose serial was already reported is skipped.
+    devices.sort(key=lambda d: ',' in d.get('type', ''))
+    serials_seen = set()
+
     for device in devices:
         if not device.get('name'):
             continue
@@ -193,6 +199,10 @@ def main():
         if not has_meaningful_data:
             continue
         
+        if serial_info and ',' in device.get('type', '') and serial_info in serials_seen:
+            continue
+        serials_seen.add(serial_info)
+
         # Create compact JSON output with friendly info
         output_data = {
             'device': device_name,

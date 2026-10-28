@@ -298,3 +298,18 @@ def test_raid_member_items_are_unique(check):
     assert items == ["/dev/bus/0 megaraid,0 (B)", "/dev/bus/0 megaraid,1 (C)"]
     out = list(check.check_oposs_smart_error(items[1], {}, section))
     assert "(bus/0 megaraid,1)" in " ".join(r.summary for r in _results(out))
+
+
+def test_medium_errors_listed_oldest_first(check):
+    # result_10 must not sort before result_2
+    entries = {f"result_{n}": _entry(n, POH - 30 * DAY // 60 + n, 2, lba=n) for n in (1, 2, 10)}
+    out = _bms(check, _device(power_on_minutes=POH, background_scan=_scan(**entries)))
+    details = " ".join(r.details for r in _results(out))
+    assert details.index("LBA 0x2 ") < details.index("LBA 0xa ")
+
+
+@pytest.mark.parametrize("progress", ["-", "n/a", None])
+def test_odd_scan_progress_does_not_crash(check, progress):
+    out = _bms(check, _device(power_on_minutes=POH, background_scan=_scan(progress=progress)))
+    assert _worst(out) == State.OK
+    assert "oposs_smart_bms_scan_progress" not in _metrics(out)

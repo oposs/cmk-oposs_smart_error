@@ -13,7 +13,8 @@ from cmk.rulesets.v1.form_specs import (
     Dictionary,
     Integer,
     TimeSpan,
-    TimeMagnitude
+    TimeMagnitude,
+    validators,
 )
 from cmk.rulesets.v1.rule_specs import AgentConfig, Topic
 
@@ -41,6 +42,7 @@ def _parameter_form_oposs_smart_error():
                     help_text=Help("Set the timeout for each smartctl command execution."),
                     displayed_magnitudes=[TimeMagnitude.SECOND, TimeMagnitude.MINUTE],
                     prefill=DefaultValue(5.0),
+                    custom_validate=(validators.NumberInRange(min_value=1.0),),
                 )
             ),
         }

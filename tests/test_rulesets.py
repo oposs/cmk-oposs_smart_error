@@ -46,3 +46,12 @@ def test_bms_form_prefills_match_defaults(rulesets, check):
 def test_error_form_has_grown_defects(rulesets):
     form = rulesets.rule_spec_oposs_smart_error.parameter_form()
     assert "grown_defects_abs" in form.elements
+
+
+def test_bakery_timeout_has_a_minimum():
+    # A timeout of 0 makes every smartctl call fail at once
+    from cmk.rulesets.v1.form_specs import validators
+    bakery = _load(PLUGIN / "rulesets/ruleset_oposs_smart_error_bakery.py", "test_oposs_smart_error_bakery_rs")
+    timeout = bakery.rule_spec_oposs_smart_error_bakery.parameter_form().elements["timeout"].parameter_form
+    ranges = [v.range for v in (timeout.custom_validate or ()) if isinstance(v, validators.NumberInRange)]
+    assert ranges and ranges[0][0] >= 1

@@ -27,7 +27,8 @@ def get_oposs_smart_error_files(conf: Dict[str, Any]):
     timeout = conf.get("timeout", 5)
 
     # Generate config file in JSON format
-    config_content = json.dumps({"timeout": int(timeout)})
+    # At least 1 s: with 0, every smartctl call times out at once
+    config_content = json.dumps({"timeout": max(1, int(timeout))})
     yield PluginConfig(
         base_os=OS.LINUX,
         target=Path("oposs_smart_error.json"),

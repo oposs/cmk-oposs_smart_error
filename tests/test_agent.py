@@ -290,3 +290,36 @@ def test_mode_page_not_read_behind_raid_controller(agent, monkeypatch, capsys):
     assert "bms_mode_page" in records["/dev/sdc"]
     assert "bms_mode_page" not in records["/dev/bus/0 megaraid,0"]
     assert [c[-1] for c in calls if c[0] == "sg_modes"] == ["/dev/sdc"]
+
+
+@pytest.mark.parametrize("configured", [0, 0.4])
+def test_baked_timeout_is_at_least_one_second(agent, bakery, monkeypatch, tmp_path, configured):
+    target, lines = _baked_config(bakery, {"timeout": configured})
+    (tmp_path / target).write_text("\n".join(lines))
+    monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / target))
+    assert agent.get_timeout() >= 1
+
+
+def test_raid_path_of_a_listed_disk_is_skipped(agent, monkeypatch, capsys):
+    # A JBOD disk on a MegaRAID controller shows up as /dev/sdX and as
+    # /dev/bus/0 megaraid,N; one service is enough, and the plain one keeps
+    # the item it had before.
+    scan = {"devices": [
+        {"name": "/dev/bus/0", "type": "megaraid,1", "protocol": "SCSI"},
+        {"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"},
+        {"name": "/dev/bus/0", "type": "megaraid,2", "protocol": "SCSI"},
+    ]}
+    serials = {"megaraid,1": "A", "scsi": "A", "megaraid,2": "B"}
+
+    def run(cmd, **kwargs):
+        if "--scan" in cmd:
+            out = scan
+        elif "--log=error" in cmd:
+            out = _info(serials[cmd[cmd.index("-d") + 1]])
+        else:
+            out = {}
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(out), stderr="")
+
+    monkeypatch.setattr(agent.subprocess, "run", run)
+    agent.main()
+    assert sorted(_output_records(capsys)) == ["/dev/bus/0 megaraid,2", "/dev/sdc"]

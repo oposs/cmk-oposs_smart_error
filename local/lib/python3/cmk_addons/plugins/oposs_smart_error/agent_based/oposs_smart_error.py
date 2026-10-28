@@ -429,7 +429,10 @@ def _check_bms_age(
 
 def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping[str, Any]) -> CheckResult:
     """Medium errors the background scan has logged"""
-    entries = [v for k, v in sorted(scan.items()) if k.startswith("result_") and isinstance(v, dict)]
+    entries = sorted(
+        (v for k, v in scan.items() if k.startswith("result_") and isinstance(v, dict)),
+        key=lambda e: (e.get("accumulated_power_on", {}).get("minutes", 0), e.get("parameter_code", 0)),
+    )
     yield Metric("oposs_smart_bms_medium_errors", len(entries))
     if not entries:
         yield Result(state=State.OK, notice="No medium errors logged by background scan")
@@ -480,16 +483,20 @@ def _check_bms(
         return
 
     value = status.get("value")
-    progress = float(str(status.get("scan_progress", "0")).rstrip("%") or 0)
+    try:
+        progress: Optional[float] = float(str(status.get("scan_progress", "0")).rstrip("%") or 0)
+    except ValueError:
+        progress = None
     text = BMS_STATUS.get(value, f"unknown status {value}")
     if value == 0:
         state = State(params["state_no_scan"])
     else:
         state = BMS_STATUS_STATE.get(value, State.UNKNOWN)
-    if value in (1, 2):
+    if value in (1, 2) and progress is not None:
         text += f" ({progress:.2f}%)"
     yield Result(state=state, summary=f"Status: {text}")
-    yield Metric("oposs_smart_bms_scan_progress", progress, boundaries=(0, 100))
+    if progress is not None:
+        yield Metric("oposs_smart_bms_scan_progress", progress, boundaries=(0, 100))
 
     scans = status.get("number_scans_performed", 0)
     poh = data.get("power_on_minutes")
