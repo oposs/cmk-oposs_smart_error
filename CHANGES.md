@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   7 days, WARN when no scan is active, WARN or CRIT for a halted scan,
   and WARN after 90 days and CRIT after 365 days of power-on time
   without a completed scan; the rule "SMART Background Medium Scan"
-  changes these.
+  changes these. Of a long scan log the service lists the newest 50
+  entries and counts the others as older errors.
 - The "SMART Errors" service of SAS drives shows and graphs the number of
   grown defect list entries. The new "Grown Defect List Entries" field in
   the "SMART Error Monitoring" rule sets levels for it.

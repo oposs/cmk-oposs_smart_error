@@ -433,8 +433,10 @@ def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping
         (v for k, v in scan.items() if k.startswith("result_") and isinstance(v, dict)),
         key=lambda e: (e.get("accumulated_power_on", {}).get("minutes", 0), e.get("parameter_code", 0)),
     )
-    yield Metric("oposs_smart_bms_medium_errors", len(entries))
-    if not entries:
+    # The agent sends only the newest entries of a long log and counts the rest
+    omitted = scan.get("results_omitted", 0) if isinstance(scan.get("results_omitted"), int) else 0
+    yield Metric("oposs_smart_bms_medium_errors", len(entries) + omitted)
+    if not entries and not omitted:
         yield Result(state=State.OK, notice="No medium errors logged by background scan")
         return
 
@@ -452,6 +454,10 @@ def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping
             groups["recent_recovered" if reassign in BMS_RECOVERED else "recent_unrecovered"].append(line)
         else:
             groups["old"].append(line)
+    counts = {key: len(lines) for key, lines in groups.items()}
+    if omitted:
+        counts["old"] += omitted
+        groups["old"].append(f"{omitted} older entries not sent by the agent")
 
     window = render.timespan(params["recent_window"])
     for key, text in (
@@ -459,12 +465,11 @@ def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping
         ("recent_recovered", f"recovered medium error(s) in the last {window}"),
         ("old", "older medium error(s) logged by background scan"),
     ):
-        lines = groups[key]
-        if lines:
+        if counts[key]:
             yield Result(
                 state=State(params[f"state_{key}" if key != "old" else "state_old_errors"]),
-                summary=f"{len(lines)} {text}",
-                details="\n".join(lines),
+                summary=f"{counts[key]} {text}",
+                details="\n".join(groups[key]),
             )
 
 

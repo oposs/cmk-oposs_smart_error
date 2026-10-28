@@ -78,7 +78,8 @@ old RRD history in the graphs.
 
 ### Agent Plugin
 - Uses `smartctl --json --scan` to discover devices
-- Uses `smartctl --json=c --info --log=error` to get device data
+- Uses one `smartctl --json=c --info --log=error --log=background --attributes -d <type>` call per device
+- Sends at most the newest 50 background scan medium error entries per device and counts the rest
 - Filters devices without SCSI error counter logs
 - Outputs JSON data with pipe separator (sep=124)
 

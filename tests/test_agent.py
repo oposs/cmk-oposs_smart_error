@@ -43,6 +43,9 @@ BACKGROUND = {
     },
 }
 
+# One smartctl call answers both the error log and the background scan log
+FULL = {**INFO, **BACKGROUND}
+
 
 @pytest.fixture
 def agent():
@@ -76,8 +79,7 @@ def test_background_scan_data_is_added(agent, monkeypatch, capsys):
     monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (0, json.dumps(INFO)),
-        ("--log=background",): (0, json.dumps(BACKGROUND)),
+        ("--log=error",): (0, json.dumps(FULL)),
         ("sg_modes",): (0, MODE_PAGE),
     }))
     agent.main()
@@ -89,12 +91,12 @@ def test_background_scan_data_is_added(agent, monkeypatch, capsys):
     assert data["bms_mode_page"] == MODE_PAGE.hex()
 
 
-def test_failing_background_query_keeps_error_counters(agent, monkeypatch, capsys):
+def test_drive_without_background_log_keeps_error_counters(agent, monkeypatch, capsys):
+    # smartctl sets bit 2 when a requested log page is not supported
     monkeypatch.setattr(agent.shutil, "which", lambda name: None)
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (0, json.dumps(INFO)),
-        ("--log=background",): (64 + 128, "not json"),
+        ("--log=error",): (4, json.dumps(INFO)),
     }))
     agent.main()
     data = _output_records(capsys)["/dev/sdc"]
@@ -107,8 +109,7 @@ def test_mode_page_skipped_without_sg_modes(agent, monkeypatch, capsys):
     monkeypatch.setattr(agent.shutil, "which", lambda name: None)
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (0, json.dumps(INFO)),
-        ("--log=background",): (0, json.dumps(BACKGROUND)),
+        ("--log=error",): (0, json.dumps(FULL)),
     }))
     agent.main()
     data = _output_records(capsys)["/dev/sdc"]
@@ -120,8 +121,7 @@ def test_mode_page_skipped_when_sg_modes_fails(agent, monkeypatch, capsys):
     monkeypatch.setattr(agent.shutil, "which", lambda name: "/usr/bin/sg_modes")
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (0, json.dumps(INFO)),
-        ("--log=background",): (0, json.dumps(BACKGROUND)),
+        ("--log=error",): (0, json.dumps(FULL)),
         ("sg_modes",): (5, b""),
     }))
     agent.main()
@@ -178,8 +178,7 @@ def test_counters_reported_despite_exit_status(agent, monkeypatch, capsys, rc):
     monkeypatch.setattr(agent.shutil, "which", lambda name: None)
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (rc, json.dumps(INFO)),
-        ("--log=background",): (rc, json.dumps(BACKGROUND)),
+        ("--log=error",): (rc, json.dumps(FULL)),
     }))
     agent.main()
     data = _output_records(capsys)["/dev/sdc"]
@@ -215,7 +214,6 @@ def test_sas_drive_model_and_firmware(agent, monkeypatch, capsys):
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
         ("--log=error",): (0, json.dumps(info)),
-        ("--log=background",): (0, "{}"),
     }))
     agent.main()
     data = _output_records(capsys)["/dev/sdc"]
@@ -227,7 +225,6 @@ def test_ata_style_model_and_firmware(agent, monkeypatch, capsys):
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
         ("--log=error",): (0, json.dumps(INFO)),
-        ("--log=background",): (0, "{}"),
     }))
     agent.main()
     data = _output_records(capsys)["/dev/sdc"]
@@ -247,7 +244,7 @@ def _recording_run(info_by_type, calls):
         elif "--log=error" in cmd:
             out = json.dumps(info_by_type[cmd[cmd.index("-d") + 1]])
         else:
-            out = json.dumps(BACKGROUND)
+            raise AssertionError(f"unexpected call {cmd}")
         return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
     return run
 
@@ -260,7 +257,7 @@ MEGARAID_SCAN = {"devices": [
 
 
 def _info(serial):
-    return dict(INFO, serial_number=serial)
+    return dict(FULL, serial_number=serial)
 
 
 def test_scan_device_type_is_used(agent, monkeypatch, capsys):
@@ -275,6 +272,9 @@ def test_scan_device_type_is_used(agent, monkeypatch, capsys):
     assert records["/dev/bus/0 megaraid,1"]["serial"] == "C"
     assert records["/dev/bus/0 megaraid,1"]["device"] == "/dev/bus/0 megaraid,1"
     smartctl = [c for c in calls if c[0] == "smartctl" and "--scan" not in c]
+    # one call per device answers info, error log and background scan log
+    assert len(smartctl) == 3
+    assert all("--log=error" in c and "--log=background" in c and "--attributes" in c for c in smartctl)
     assert all(c[-3] == "-d" for c in smartctl)
     assert ["-d", "megaraid,1", "/dev/bus/0"] in [c[-3:] for c in smartctl]
 
@@ -320,6 +320,26 @@ def test_raid_path_of_a_listed_disk_is_skipped(agent, monkeypatch, capsys):
             out = {}
         return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(out), stderr="")
 
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
     monkeypatch.setattr(agent.subprocess, "run", run)
     agent.main()
     assert sorted(_output_records(capsys)) == ["/dev/bus/0 megaraid,2", "/dev/sdc"]
+
+
+def test_large_background_scan_log_is_trimmed(agent, monkeypatch, capsys):
+    results = {
+        f"result_{n}": {"parameter_code": n, "accumulated_power_on": {"minutes": 1000 + n}, "lba": n}
+        for n in range(1, 201)
+    }
+    full = dict(FULL, scsi_background_scan=dict(BACKGROUND["scsi_background_scan"], **results))
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (0, json.dumps(full)),
+    }))
+    agent.main()
+    scan = _output_records(capsys)["/dev/sdc"]["background_scan"]
+    kept = sorted(int(k.split("_")[1]) for k in scan if k.startswith("result_"))
+    assert kept == list(range(151, 201))  # the newest ones
+    assert scan["results_omitted"] == 150
+    assert scan["status"] == BACKGROUND["scsi_background_scan"]["status"]

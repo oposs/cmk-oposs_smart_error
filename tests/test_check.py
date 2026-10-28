@@ -313,3 +313,14 @@ def test_odd_scan_progress_does_not_crash(check, progress):
     out = _bms(check, _device(power_on_minutes=POH, background_scan=_scan(progress=progress)))
     assert _worst(out) == State.OK
     assert "oposs_smart_bms_scan_progress" not in _metrics(out)
+
+
+def test_omitted_medium_errors_are_counted(check):
+    entries = {f"result_{n}": _entry(n, POH - 10, 2, lba=n) for n in (1, 2)}
+    scan = _scan(**entries)
+    scan["results_omitted"] = 7
+    out = _bms(check, _device(power_on_minutes=POH, background_scan=scan))
+    assert _metrics(out)["oposs_smart_bms_medium_errors"] == 9
+    old = [r for r in _results(out) if "older medium error" in r.summary]
+    assert old and old[0].summary.startswith("7 ")
+    assert "7 older entries not sent by the agent" in old[0].details

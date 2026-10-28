@@ -99,24 +99,41 @@ def device_key(device: Dict) -> str:
     return device['name']
 
 
-def get_smart_info_and_errors(device: Dict, timeout: int) -> Tuple[Optional[Dict], str]:
-    """Get SMART device info and error log for a specific device"""
-    return run_smartctl_json(['--json=c', '--info', '--log=error', *device_args(device)], timeout)
+# The background scan log holds up to 2048 medium error entries. A disk that
+# is going bad would put hundreds of KB into every agent run; the newest
+# entries are the ones that matter.
+BMS_MAX_RESULTS = 50
 
 
-def get_background_data(device: Dict, timeout: int) -> Dict:
-    """Get background medium scan log, power-on time and grown defect count.
+def get_smart_data(device: Dict, timeout: int) -> Tuple[Optional[Dict], str]:
+    """Get device info, error counter log and background scan log in one call.
 
-    Runs as a separate smartctl call so that a drive which cannot answer it
-    still reports its error counters.
+    A drive without a background scan log only sets exit status bit 2, so
+    its error counters still arrive.
     """
-    data, _ = run_smartctl_json(['--json=c', '--log=background', '--attributes', *device_args(device)], timeout)
-    if data is None:
-        return {}
+    return run_smartctl_json(
+        ['--json=c', '--info', '--log=error', '--log=background', '--attributes', *device_args(device)],
+        timeout)
 
+
+def trim_background_scan(scan: Dict) -> Dict:
+    """Keep the newest BMS_MAX_RESULTS medium error entries and count the rest"""
+    results = [k for k, v in scan.items() if k.startswith('result_') and isinstance(v, dict)]
+    if len(results) <= BMS_MAX_RESULTS:
+        return scan
+    results.sort(key=lambda k: (scan[k].get('accumulated_power_on', {}).get('minutes', 0),
+                                scan[k].get('parameter_code', 0)))
+    dropped = set(results[:-BMS_MAX_RESULTS])
+    trimmed = {k: v for k, v in scan.items() if k not in dropped}
+    trimmed['results_omitted'] = len(dropped)
+    return trimmed
+
+
+def get_background_data(data: Dict) -> Dict:
+    """Background medium scan log, power-on time and grown defect count"""
     background = {}
     if isinstance(data.get('scsi_background_scan'), dict):
-        background['background_scan'] = data['scsi_background_scan']
+        background['background_scan'] = trim_background_scan(data['scsi_background_scan'])
     power_on = data.get('power_on_time')
     if isinstance(power_on, dict) and 'hours' in power_on:
         background['power_on_minutes'] = power_on['hours'] * 60 + power_on.get('minutes', 0)
@@ -164,7 +181,7 @@ def main():
             continue
         device_name = device_key(device)
 
-        smart_data, reason = get_smart_info_and_errors(device, timeout)
+        smart_data, reason = get_smart_data(device, timeout)
         if smart_data is None:
             print(f"{device_name}|ERROR|Failed to get SMART data: {reason}")
             continue
@@ -215,7 +232,7 @@ def main():
         }
 
         # Background medium scan (BMS) status and results, SAS drives only
-        output_data.update(get_background_data(device, timeout))
+        output_data.update(get_background_data(smart_data))
         # sg_modes cannot reach a disk behind a RAID controller; it would ask the controller
         if 'background_scan' in output_data and device_name == device['name']:
             mode_page = get_bms_mode_page(device['name'], timeout)
