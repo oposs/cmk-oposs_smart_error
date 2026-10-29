@@ -42,3 +42,6 @@ discovery:
  One service is created for each storage device that supports SCSI error
  counter logs and has meaningful error counter data available. Services
  are named "SMART Errors <item>" (for example "SMART Errors /dev/sda (2JG5LEHB)").
+ A SAS drive that reports its serial number but no error counter data is
+ broken; it also gets a service, which is CRIT and shows the reason smartctl
+ gives, for example "device Test Unit Ready [medium or hardware error (serious)]".

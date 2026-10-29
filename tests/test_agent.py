@@ -187,6 +187,7 @@ def test_counters_reported_despite_exit_status(agent, monkeypatch, capsys, rc):
 
 
 # Bit 0 (command line not parsed) and bit 1 (device open failed) mean no data.
+# Without smartctl's text message the reason names the exit bit.
 @pytest.mark.parametrize("rc,reason", [
     (1, "command line did not parse"),
     (2, "device open failed"),
@@ -195,7 +196,7 @@ def test_counters_reported_despite_exit_status(agent, monkeypatch, capsys, rc):
 def test_unusable_exit_status_is_reported(agent, monkeypatch, capsys, rc, reason):
     monkeypatch.setattr(agent.subprocess, "run", _fake_run({
         ("--scan",): (0, json.dumps(SCAN)),
-        ("--log=error",): (rc, json.dumps(INFO)),
+        ("--json=c", "--log=error"): (rc, json.dumps(INFO)),
     }))
     agent.main()
     (line,) = _output_lines(capsys)
@@ -343,3 +344,91 @@ def test_large_background_scan_log_is_trimmed(agent, monkeypatch, capsys):
     assert kept == list(range(151, 201))  # the newest ones
     assert scan["results_omitted"] == 150
     assert scan["status"] == BACKGROUND["scsi_background_scan"]["status"]
+
+
+# --- a drive that names itself but returns no data -----------------------------
+
+# smartctl 7.4 for a SAS drive that fails Test Unit Ready: its identity arrives
+# as JSON, the reason only in the text output.
+FAILED_JSON = {
+    "smartctl": {"exit_status": 2},
+    "device": {"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"},
+    "scsi_model_name": "WDC WUH722222AL5204",
+    "scsi_revision": "C7C0",
+    "serial_number": "1RKH8LJG",
+    "scsi_transport_protocol": {"name": "SAS (SPL-4)", "value": 6},
+}
+
+FAILED_TEXT = """smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.8.0-124-generic] (local build)
+Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org
+
+=== START OF INFORMATION SECTION ===
+Vendor:               WDC
+Product:              WUH722222AL5204
+Revision:             C7C0
+LU is fully provisioned
+Serial number:        1RKH8LJG
+Transport protocol:   SAS (SPL-4)
+Local Time is:        Thu Oct 29 10:01:39 2026 CET
+device Test Unit Ready  [medium or hardware error (serious)]
+A mandatory SMART command failed: exiting. To continue, add one or more '-T permissive' options.
+"""
+
+
+def _failed_drive(agent, monkeypatch, capsys, text=FAILED_TEXT, data=FAILED_JSON):
+    responses = {("--json=c", "--log=error"): (2, json.dumps(data))}
+    if text is not None:
+        responses[("--log=error",)] = (2, text)
+    responses[("--scan",)] = (0, json.dumps(SCAN))
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run(responses))
+    agent.main()
+    (line,) = _output_lines(capsys)
+    return line.split("|")
+
+
+def test_failed_drive_reports_smartctl_message(agent, monkeypatch, capsys):
+    fields = _failed_drive(agent, monkeypatch, capsys)
+    assert fields[:3] == [
+        "/dev/sdc", "ERROR",
+        "Failed to get SMART data: device Test Unit Ready [medium or hardware error (serious)]"
+        " (smartctl exit status 2)",
+    ]
+
+
+def test_failed_drive_reports_identity(agent, monkeypatch, capsys):
+    fields = _failed_drive(agent, monkeypatch, capsys)
+    assert json.loads(fields[3]) == {
+        "model": "WDC WUH722222AL5204",
+        "serial": "1RKH8LJG",
+        "firmware": "C7C0",
+        "protocol": "SCSI",
+        "transport": "SAS (SPL-4)",
+    }
+
+
+def test_failed_drive_without_text_output_keeps_exit_bit_reason(agent, monkeypatch, capsys):
+    fields = _failed_drive(agent, monkeypatch, capsys, text=None)
+    assert fields[2] == "Failed to get SMART data: device open failed (smartctl exit status 2)"
+
+
+def test_failed_drive_without_serial_has_no_identity(agent, monkeypatch, capsys):
+    data = {k: v for k, v in FAILED_JSON.items() if k != "serial_number"}
+    fields = _failed_drive(agent, monkeypatch, capsys, data=data)
+    assert len(fields) == 3
+
+
+def test_open_failure_message(agent, monkeypatch, capsys):
+    text = ("smartctl 7.4 2023-08-01 r5530 [x86_64-linux-6.8.0-124-generic] (local build)\n"
+            "Copyright (C) 2002-23, Bruce Allen, Christian Franke, www.smartmontools.org\n\n"
+            "Smartctl open device: /dev/sdc failed: No such device\n")
+    fields = _failed_drive(agent, monkeypatch, capsys, text=text, data={"smartctl": {"exit_status": 2}})
+    assert fields == ["/dev/sdc", "ERROR",
+                      "Failed to get SMART data: Smartctl open device: /dev/sdc failed: No such device"
+                      " (smartctl exit status 2)"]
+
+
+def test_separator_in_message_is_replaced(agent, monkeypatch, capsys):
+    text = FAILED_TEXT.replace("(serious)", "(a|b)")
+    fields = _failed_drive(agent, monkeypatch, capsys, text=text)
+    assert "[medium or hardware error (a/b)]" in fields[2]
+    assert len(fields) == 4

@@ -40,6 +40,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   previously held the MIT text.
 
 ### Fixed
+- A SAS drive that had already failed when the services were discovered,
+  for example one that shows 0B in `lsblk`, got no "SMART Errors" service
+  and so raised no alarm. Such a drive now gets a service that is CRIT.
 - The README named rules, fields and services that do not exist, such as
   "OPOSS SMART Error Monitoring (Linux)", an "Enable" option, "Uncorrected
   Errors per TB" and the service name "OPOSS SMART Errors /dev/sda", and
@@ -59,8 +62,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The "SMART Errors" service went CRIT with "Error: Failed to get SMART
   data" for some drives that smartctl had read without trouble, for
   example when one of its log page reads failed. It now shows the
-  counters, and when there really is no data the message says why, for
-  example "device open failed (smartctl exit status 2)".
+  counters, and when there really is no data the message gives smartctl's
+  own reason, for example "device Test Unit Ready [medium or hardware error
+  (serious)] (smartctl exit status 2)".
 - The "Command execution timeout" set in the agent bakery rule "OPOSS
   SMART Error Monitoring (smartctl)" had no effect: the bakery wrote the
   setting to a file the agent plugin never read, so smartctl always ran with a

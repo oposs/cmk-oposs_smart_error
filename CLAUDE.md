@@ -87,7 +87,11 @@ old RRD history in the graphs.
 - Graceful handling of missing smartctl
 - Skips devices without error logs (common for consumer SSDs)
 - Validates JSON data structure
-- Provides meaningful error messages
+- When smartctl gives up (exit bit 0 or 1) it reruns the command without `--json`,
+  because smartctl 7.4 prints the reason only as text, and appends the drive
+  identity (serial, model, transport) as a 4th field: `<dev>|ERROR|<reason>|<json>`
+- The check discovers such a failed drive only with a serial and SAS transport,
+  which keeps empty card readers and USB bridges out
 
 ### Bakery Integration
 - Deploys `local/share/check_mk/agents/plugins/oposs_smart_error` unchanged

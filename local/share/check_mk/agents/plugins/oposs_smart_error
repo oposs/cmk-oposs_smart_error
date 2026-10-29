@@ -53,8 +53,44 @@ SMARTCTL_FATAL_BITS = {
 }
 
 
+def smartctl_message(args: List[str], timeout: int) -> str:
+    """Run smartctl as text and return why it gave up.
+
+    In JSON mode smartctl 7.4 keeps this message to itself. It follows the
+    "Local Time is:" line, or the copyright header when the device did not
+    open at all.
+    """
+    try:
+        result = subprocess.run(
+            ['smartctl', *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
+    lines = result.stdout.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith('Local Time is:'):
+            lines = lines[index + 1:]
+            break
+    else:
+        lines = [line for line in lines if not line.startswith(('smartctl ', 'Copyright (C)'))]
+    message = [
+        ' '.join(line.split()) for line in lines
+        if line.strip()
+        and not line.startswith('===')
+        and not line.startswith('A mandatory SMART command failed')
+    ]
+    return '; '.join(message)
+
+
 def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], str]:
-    """Run smartctl with JSON output. Return (data, "") or (None, reason)."""
+    """Run smartctl with JSON output. Return (data, "") or (data, reason).
+
+    On failure data is None, except when smartctl gave up but still named the
+    drive in its JSON; then data holds that partial answer.
+    """
     try:
         result = subprocess.run(
             ['smartctl', *args],
@@ -70,14 +106,18 @@ def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], st
     if rc < 0:
         return None, f"smartctl killed by signal {-rc}"
     reasons = [text for bit, text in SMARTCTL_FATAL_BITS.items() if rc & bit]
-    if reasons:
-        return None, f"{', '.join(reasons)} (smartctl exit status {rc})"
     try:
         data = json.loads(result.stdout)
+        problem = "" if isinstance(data, dict) else "unexpected JSON output"
     except json.JSONDecodeError:
-        return None, f"no JSON output (smartctl exit status {rc})"
-    if not isinstance(data, dict):
-        return None, f"unexpected JSON output (smartctl exit status {rc})"
+        problem = "no JSON output"
+    if problem:
+        data = None
+    if reasons:
+        message = smartctl_message([arg for arg in args if not arg.startswith('--json')], timeout)
+        return data, f"{message or ', '.join(reasons)} (smartctl exit status {rc})"
+    if problem:
+        return None, f"{problem} (smartctl exit status {rc})"
     return data, ""
 
 
@@ -159,6 +199,23 @@ def get_bms_mode_page(device_name: str, timeout: int) -> Optional[str]:
     return result.stdout.hex()
 
 
+def drive_identity(data: Dict) -> Optional[Dict]:
+    """Model, serial and transport of a drive that answered but gave no data.
+
+    The check uses them to give such a drive a service; without a serial
+    number there is nothing to name it by.
+    """
+    if not data.get('serial_number'):
+        return None
+    return {
+        'model': data.get('model_name') or data.get('scsi_model_name', ''),
+        'serial': data['serial_number'],
+        'firmware': data.get('firmware_version') or data.get('scsi_revision', ''),
+        'protocol': data.get('device', {}).get('protocol', ''),
+        'transport': data.get('scsi_transport_protocol', {}).get('name', ''),
+    }
+
+
 def main():
     """Main function to collect and output SMART error data"""
     timeout = get_timeout()
@@ -182,8 +239,13 @@ def main():
         device_name = device_key(device)
 
         smart_data, reason = get_smart_data(device, timeout)
-        if smart_data is None:
-            print(f"{device_name}|ERROR|Failed to get SMART data: {reason}")
+        if reason:
+            # '|' separates the fields of the line
+            line = f"{device_name}|ERROR|Failed to get SMART data: {reason.replace('|', '/')}"
+            identity = drive_identity(smart_data or {})
+            if identity:
+                line += f"|{json.dumps(identity, separators=(',', ':'))}"
+            print(line)
             continue
         
         # Extract relevant data

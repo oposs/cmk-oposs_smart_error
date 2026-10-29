@@ -71,6 +71,14 @@ def parse_oposs_smart_error(string_table: StringTable) -> Section:
             # Handle error cases
             error_msg = line[2] if len(line) > 2 else "Unknown error"
             section[device_name] = {"error": error_msg}
+            # A drive that answered but gave no data also sends its identity
+            if len(line) > 3:
+                try:
+                    identity = json.loads("|".join(line[3:]))
+                except json.JSONDecodeError:
+                    identity = None
+                if isinstance(identity, dict):
+                    section[device_name] = {**identity, "error": error_msg}
             continue
         
         try:
@@ -101,10 +109,19 @@ def _device_from_item(item: str) -> str:
     return item.strip()
 
 
+def _is_failed_sas_drive(data: Dict[str, Any]) -> bool:
+    """A SAS drive that names itself but gives no data is broken.
+
+    Card readers and USB bridges without a medium fail the same way, but
+    they do not use the SAS transport.
+    """
+    return bool(data.get("serial")) and str(data.get("transport", "")).startswith("SAS")
+
+
 def discover_oposs_smart_error(section: Section) -> DiscoveryResult:
     """Discover SMART error services"""
     for device_name, data in section.items():
-        if "error" not in data:
+        if "error" not in data or _is_failed_sas_drive(data):
             yield Service(item=_service_item(device_name, data))
 
 

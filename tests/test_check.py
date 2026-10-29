@@ -324,3 +324,45 @@ def test_omitted_medium_errors_are_counted(check):
     old = [r for r in _results(out) if "older medium error" in r.summary]
     assert old and old[0].summary.startswith("7 ")
     assert "7 older entries not sent by the agent" in old[0].details
+
+
+# --- drives that name themselves but return no data ---------------------------
+
+FAILED_MESSAGE = ("Failed to get SMART data: device Test Unit Ready [medium or hardware error (serious)]"
+                  " (smartctl exit status 2)")
+
+
+def _failed(serial="1RKH8LJG", transport="SAS (SPL-4)"):
+    identity = {"model": "WDC WUH722222AL5204", "serial": serial, "firmware": "C7C0",
+                "protocol": "SCSI", "transport": transport}
+    return ["/dev/sdj", "ERROR", FAILED_MESSAGE, json.dumps(identity)]
+
+
+def test_failed_sas_drive_is_discovered_and_crit(check):
+    section = check.parse_oposs_smart_error([_failed()])
+    items = [s.item for s in check.discover_oposs_smart_error(section)]
+    assert items == ["/dev/sdj (1RKH8LJG)"]
+    (result,) = check.check_oposs_smart_error(items[0], {}, section)
+    assert result.state == State.CRIT
+    assert FAILED_MESSAGE in result.summary
+    assert list(check.discover_oposs_smart_bms(section)) == []
+
+
+@pytest.mark.parametrize("line", [
+    ["/dev/sdj", "ERROR", "Failed to get SMART data: no answer within 5 s"],
+    _failed(serial=""),
+    _failed(transport="USB"),
+    _failed(transport=""),
+])
+def test_unidentified_or_non_sas_failures_are_not_discovered(check, line):
+    section = check.parse_oposs_smart_error([line])
+    assert list(check.discover_oposs_smart_error(section)) == []
+    (result,) = check.check_oposs_smart_error("/dev/sdj (1RKH8LJG)", {}, section)
+    assert result.state == State.CRIT
+
+
+def test_separator_inside_identity_survives_the_split(check):
+    line = _failed()
+    line[3] = line[3].replace("WDC WUH722222AL5204", "A|B")
+    section = check.parse_oposs_smart_error([line[:3] + line[3].split("|")])
+    assert section["/dev/sdj"]["model"] == "A|B"

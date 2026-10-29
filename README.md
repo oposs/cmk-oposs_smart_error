@@ -119,7 +119,8 @@ ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
 2. Select target hosts and run **Service discovery**
 3. SMART services will be discovered for each drive with error counter logs,
    including disks behind a RAID controller that `smartctl --scan` lists with a
-   device type such as `megaraid,0`
+   device type such as `megaraid,0`. A SAS drive that reports its serial
+   number but no data also gets a service, which is CRIT.
 4. Accept the discovered services
 
 ### Threshold Configuration
@@ -214,7 +215,9 @@ Check that:
 
 ### Error Messages
 
-- **"Failed to get SMART data"**: Check drive accessibility and smartctl permissions
+- **"Failed to get SMART data"**: The rest of the message is smartctl's own
+  reason, for example `device Test Unit Ready [medium or hardware error (serious)]`
+  for a broken drive. Check the drive, its cabling and the smartctl permissions.
 - **"No error counter data available"**: Drive doesn't support SCSI error logging (common with consumer SSDs)
 - **"Agent plugin source file not found"**: Bakery can't find the agent plugin file
 
