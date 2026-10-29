@@ -8,10 +8,11 @@ Compatible with CheckMK 2.3
 
 import json
 import os
+import shutil
 import subprocess
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
-CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "smart_errors.json")
+CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "oposs_smart_error.json")
 
 def get_timeout() -> int:
     """Read timeout from config file, return default if not found."""
@@ -20,8 +21,8 @@ def get_timeout() -> int:
     try:
         with open(CONFIG_FILE, 'r') as f:
             config = json.load(f)
-        return config.get("timeout", 5)
-    except (json.JSONDecodeError, IOError):
+        return max(1, int(config.get("timeout", 5)))
+    except (json.JSONDecodeError, IOError, TypeError, ValueError):
         return 5
 
 
@@ -43,22 +44,176 @@ def get_smart_devices(timeout: int) -> List[Dict]:
         return []
 
 
-def get_smart_info_and_errors(device_name: str, timeout: int) -> Optional[Dict]:
-    """Get SMART device info and error log for a specific device"""
+# smartctl exit status bits after which its JSON holds no device data. The
+# other bits (a command failed, drive health, logged errors) come with
+# complete JSON.
+SMARTCTL_FATAL_BITS = {
+    0x01: "command line did not parse",
+    0x02: "device open failed",
+}
+
+
+def smartctl_message(args: List[str], timeout: int) -> str:
+    """Run smartctl as text and return why it gave up.
+
+    In JSON mode smartctl 7.4 keeps this message to itself. It follows the
+    "Local Time is:" line, or the copyright header when the device did not
+    open at all.
+    """
     try:
         result = subprocess.run(
-            ['smartctl', '--json=c', '--info', '--log=error', device_name],
+            ['smartctl', *args],
             capture_output=True,
             text=True,
             timeout=timeout
         )
-        if result.returncode not in [0, 1, 2, 4]:  # Allow some non-zero codes
-            return None
-        
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return ""
+    lines = result.stdout.splitlines()
+    for index, line in enumerate(lines):
+        if line.startswith('Local Time is:'):
+            lines = lines[index + 1:]
+            break
+    else:
+        lines = [line for line in lines if not line.startswith(('smartctl ', 'Copyright (C)'))]
+    message = [
+        ' '.join(line.split()) for line in lines
+        if line.strip()
+        and not line.startswith('===')
+        and not line.startswith('A mandatory SMART command failed')
+    ]
+    return '; '.join(message)
+
+
+def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], str]:
+    """Run smartctl with JSON output. Return (data, "") or (data, reason).
+
+    On failure data is None, except when smartctl gave up but still named the
+    drive in its JSON; then data holds that partial answer.
+    """
+    try:
+        result = subprocess.run(
+            ['smartctl', *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout
+        )
+    except subprocess.TimeoutExpired:
+        return None, f"no answer within {timeout} s"
+    except FileNotFoundError:
+        return None, "smartctl not found"
+    rc = result.returncode
+    if rc < 0:
+        return None, f"smartctl killed by signal {-rc}"
+    reasons = [text for bit, text in SMARTCTL_FATAL_BITS.items() if rc & bit]
+    try:
         data = json.loads(result.stdout)
-        return data
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+        problem = "" if isinstance(data, dict) else "unexpected JSON output"
+    except json.JSONDecodeError:
+        problem = "no JSON output"
+    if problem:
+        data = None
+    if reasons:
+        message = smartctl_message([arg for arg in args if not arg.startswith('--json')], timeout)
+        return data, f"{message or ', '.join(reasons)} (smartctl exit status {rc})"
+    if problem:
+        return None, f"{problem} (smartctl exit status {rc})"
+    return data, ""
+
+
+def device_args(device: Dict) -> List[str]:
+    """smartctl arguments addressing a scanned device, with the type the scan found"""
+    if device.get('type'):
+        return ['-d', device['type'], device['name']]
+    return [device['name']]
+
+
+def device_key(device: Dict) -> str:
+    """Name a scanned device uniquely.
+
+    Disks behind a RAID controller share one device name and differ only in
+    the type (megaraid,0, megaraid,1, ...). Plain devices keep their name.
+    """
+    if ',' in device.get('type', ''):
+        return f"{device['name']} {device['type']}"
+    return device['name']
+
+
+# The background scan log holds up to 2048 medium error entries. A disk that
+# is going bad would put hundreds of KB into every agent run; the newest
+# entries are the ones that matter.
+BMS_MAX_RESULTS = 50
+
+
+def get_smart_data(device: Dict, timeout: int) -> Tuple[Optional[Dict], str]:
+    """Get device info, error counter log and background scan log in one call.
+
+    A drive without a background scan log only sets exit status bit 2, so
+    its error counters still arrive.
+    """
+    return run_smartctl_json(
+        ['--json=c', '--info', '--log=error', '--log=background', '--attributes', *device_args(device)],
+        timeout)
+
+
+def trim_background_scan(scan: Dict) -> Dict:
+    """Keep the newest BMS_MAX_RESULTS medium error entries and count the rest"""
+    results = [k for k, v in scan.items() if k.startswith('result_') and isinstance(v, dict)]
+    if len(results) <= BMS_MAX_RESULTS:
+        return scan
+    results.sort(key=lambda k: (scan[k].get('accumulated_power_on', {}).get('minutes', 0),
+                                scan[k].get('parameter_code', 0)))
+    dropped = set(results[:-BMS_MAX_RESULTS])
+    trimmed = {k: v for k, v in scan.items() if k not in dropped}
+    trimmed['results_omitted'] = len(dropped)
+    return trimmed
+
+
+def get_background_data(data: Dict) -> Dict:
+    """Background medium scan log, power-on time and grown defect count"""
+    background = {}
+    if isinstance(data.get('scsi_background_scan'), dict):
+        background['background_scan'] = trim_background_scan(data['scsi_background_scan'])
+    power_on = data.get('power_on_time')
+    if isinstance(power_on, dict) and 'hours' in power_on:
+        background['power_on_minutes'] = power_on['hours'] * 60 + power_on.get('minutes', 0)
+    if isinstance(data.get('scsi_grown_defect_list'), int):
+        background['grown_defects'] = data['scsi_grown_defect_list']
+    return background
+
+
+def get_bms_mode_page(device_name: str, timeout: int) -> Optional[str]:
+    """Get the Background Control mode page (0x1c/1) as hex, if sg_modes is installed"""
+    if not shutil.which('sg_modes'):
         return None
+    try:
+        result = subprocess.run(
+            ['sg_modes', '-r', '-p', '0x1c,1', device_name],
+            capture_output=True,
+            timeout=timeout
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        return None
+    if result.returncode != 0 or not result.stdout:
+        return None
+    return result.stdout.hex()
+
+
+def drive_identity(data: Dict) -> Optional[Dict]:
+    """Model, serial and transport of a drive that answered but gave no data.
+
+    The check uses them to give such a drive a service; without a serial
+    number there is nothing to name it by.
+    """
+    if not data.get('serial_number'):
+        return None
+    return {
+        'model': data.get('model_name') or data.get('scsi_model_name', ''),
+        'serial': data['serial_number'],
+        'firmware': data.get('firmware_version') or data.get('scsi_revision', ''),
+        'protocol': data.get('device', {}).get('protocol', ''),
+        'transport': data.get('scsi_transport_protocol', {}).get('name', ''),
+    }
 
 
 def main():
@@ -72,21 +227,33 @@ def main():
 
     print("<<<oposs_smart_error:sep(124)>>>")
 
+    # A JBOD disk on a RAID controller is listed twice, as /dev/sdX and as
+    # /dev/bus/N with a megaraid,N type. Plain devices go first, and a RAID
+    # path whose serial was already reported is skipped.
+    devices.sort(key=lambda d: ',' in d.get('type', ''))
+    serials_seen = set()
+
     for device in devices:
-        device_name = device.get('name', '')
-        if not device_name:
+        if not device.get('name'):
             continue
-            
-        smart_data = get_smart_info_and_errors(device_name, timeout)
-        if smart_data is None:
-            print(f"{device_name}|ERROR|Failed to get SMART data")
+        device_name = device_key(device)
+
+        smart_data, reason = get_smart_data(device, timeout)
+        if reason:
+            # '|' separates the fields of the line
+            line = f"{device_name}|ERROR|Failed to get SMART data: {reason.replace('|', '/')}"
+            identity = drive_identity(smart_data or {})
+            if identity:
+                line += f"|{json.dumps(identity, separators=(',', ':'))}"
+            print(line)
             continue
         
         # Extract relevant data
         device_info = smart_data.get('device', {})
-        model_info = smart_data.get('model_name', '')
+        # SCSI/SAS drives report model and firmware under their own names
+        model_info = smart_data.get('model_name') or smart_data.get('scsi_model_name', '')
         serial_info = smart_data.get('serial_number', '')
-        firmware_info = smart_data.get('firmware_version', '')
+        firmware_info = smart_data.get('firmware_version') or smart_data.get('scsi_revision', '')
         capacity_info = smart_data.get('user_capacity', {})
         error_log = smart_data.get('scsi_error_counter_log', {})
         
@@ -111,9 +278,13 @@ def main():
         if not has_meaningful_data:
             continue
         
+        if serial_info and ',' in device.get('type', '') and serial_info in serials_seen:
+            continue
+        serials_seen.add(serial_info)
+
         # Create compact JSON output with friendly info
         output_data = {
-            'device': device_info.get('name', device_name),
+            'device': device_name,
             'protocol': device_info.get('protocol', 'unknown'),
             'model': model_info,
             'serial': serial_info,
@@ -121,6 +292,14 @@ def main():
             'capacity_bytes': capacity_info.get('bytes', 0) if isinstance(capacity_info, dict) else 0,
             'error_counters': error_log
         }
+
+        # Background medium scan (BMS) status and results, SAS drives only
+        output_data.update(get_background_data(smart_data))
+        # sg_modes cannot reach a disk behind a RAID controller; it would ask the controller
+        if 'background_scan' in output_data and device_name == device['name']:
+            mode_page = get_bms_mode_page(device['name'], timeout)
+            if mode_page:
+                output_data['bms_mode_page'] = mode_page
         
         print(f"{device_name}|{json.dumps(output_data, separators=(',', ':'))}")
 

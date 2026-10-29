@@ -42,38 +42,44 @@ from cmk.agent_based.v2 import (
 - `discover_oposs_smart_error()`: Creates services for drives with error logs
 - `check_oposs_smart_error()`: Evaluates thresholds and generates metrics
 
-### Rulesets (CheckMK 2.3 GUI API)
+### Rulesets (CheckMK 2.3 rulesets API)
 ```python
-from cmk.gui.valuespec import Dictionary, Tuple, Integer, Float
-from cmk.gui.plugins.wato.utils import CheckParameterRulespecWithoutItem
+from cmk.rulesets.v1.form_specs import Dictionary, DictElement, SimpleLevels, TimeSpan
+from cmk.rulesets.v1.rule_specs import CheckParameters, AgentConfig, HostAndItemCondition
 ```
 
-### Graphing (CheckMK 2.3 Metrics API)
+### Graphing (CheckMK 2.3 graphing API)
 ```python
-from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
+from cmk.graphing.v1 import metrics, graphs, perfometers, translations
 ```
 
 ## Metrics Generated
 
+All metric names start with `oposs_smart_error_`. The unprefixed names used
+up to 1.0.5 are mapped onto them in `graphing/translations.py`, which keeps the
+old RRD history in the graphs.
+
 ### Per Operation (read/write/verify) - 6 metrics each:
-- `{operation}_errors_corrected_by_eccfast`
-- `{operation}_errors_corrected_by_eccdelayed`
-- `{operation}_errors_corrected_by_rereads_rewrites`
-- `{operation}_correction_algorithm_invocations`
-- `{operation}_bytes_processed`
-- `{operation}_total_uncorrected_errors`
+- `oposs_smart_error_{operation}_errors_corrected_by_eccfast`
+- `oposs_smart_error_{operation}_errors_corrected_by_eccdelayed`
+- `oposs_smart_error_{operation}_errors_corrected_by_rereads_rewrites`
+- `oposs_smart_error_{operation}_correction_algorithm_invocations`
+- `oposs_smart_error_{operation}_bytes_processed`
+- `oposs_smart_error_{operation}_total_uncorrected_errors`
 
-### Per Operation Rate (per TB) - 5 metrics each:
-- Same as above except bytes_processed, divided by TB processed
+### Per Operation Rate (per TB) - 4 metrics each:
+- The first four above with `_per_tb`, divided by TB processed
 
-### Summary Metrics:
-- `total_bytes_processed` (only informational metric - error totals are redundant)
+### Other:
+- `oposs_smart_error_grown_defects`
+- `oposs_smart_bms_*` for the background scan service
 
 ## Key Implementation Details
 
 ### Agent Plugin
 - Uses `smartctl --json --scan` to discover devices
-- Uses `smartctl --json=c --info --log=error` to get device data
+- Uses one `smartctl --json=c --info --log=error --log=background --attributes -d <type>` call per device
+- Sends at most the newest 50 background scan medium error entries per device and counts the rest
 - Filters devices without SCSI error counter logs
 - Outputs JSON data with pipe separator (sep=124)
 
@@ -81,13 +87,16 @@ from cmk.gui.plugins.metrics import graph_info, metric_info, perfometer_info
 - Graceful handling of missing smartctl
 - Skips devices without error logs (common for consumer SSDs)
 - Validates JSON data structure
-- Provides meaningful error messages
+- When smartctl gives up (exit bit 0 or 1) it reruns the command without `--json`,
+  because smartctl 7.4 prints the reason only as text, and appends the drive
+  identity (serial, model, transport) as a 4th field: `<dev>|ERROR|<reason>|<json>`
+- The check discovers such a failed drive only with a serial and SAS transport,
+  which keeps empty card readers and USB bridges out
 
 ### Bakery Integration
-- Reads agent plugin source file from same directory (server_side_calls/oposs_smart_error)
-- Can modify timeout parameters based on configuration
-- Supports interval configuration for scheduled execution
-- Falls back to minimal plugin if source not found
+- Deploys `local/share/check_mk/agents/plugins/oposs_smart_error` unchanged
+- Writes the timeout to `oposs_smart_error.json` in `$MK_CONFDIR`, which the agent reads
+- Passes the execution interval to the plugin (asynchronous execution)
 
 ## Testing Commands
 
@@ -114,18 +123,18 @@ python3 -m py_compile local/lib/python3/cmk_addons/plugins/oposs_smart_error/age
 
 ## Configuration Parameters
 
-### Ruleset Parameters
-- `uncorrected_errors_abs`: Tuple (warn, crit) for absolute uncorrected errors
-- `eccfast_errors_abs`: Tuple (warn, crit) for ECC fast corrected errors
-- `eccdelayed_errors_abs`: Tuple (warn, crit) for ECC delayed corrected errors
-- `rereads_rewrites_errors_abs`: Tuple (warn, crit) for rereads/rewrites corrected errors
-- `algorithm_invocations_abs`: Tuple (warn, crit) for correction algorithm invocations
-- `uncorrected_errors_per_tb`: Tuple (warn, crit) for uncorrected error rate per TB
+### Ruleset Parameters (`oposs_smart_error`)
+SimpleLevels per operation, `{operation}` is read, write or verify:
+- `{operation}_uncorrected_errors_abs`
+- `{operation}_eccfast_errors_abs`
+- `{operation}_eccdelayed_errors_abs`
+- `{operation}_rereads_rewrites_errors_abs`
+- `{operation}_algorithm_invocations_abs`
+- `grown_defects_abs` (one per drive)
 
 ### Bakery Parameters
-- `enabled`: Boolean to enable/disable monitoring
-- `timeout`: Integer timeout for smartctl commands (default: 30)
-- `interval`: Integer execution interval in seconds (default: 0)
+- `timeout`: timeout for each smartctl call in seconds (default: 5)
+- `interval`: execution interval in seconds (default: 0, every agent run)
 
 ## File Locations
 
@@ -165,10 +174,9 @@ CheckMK 2.3 uses discovery-based plugin registration:
 - Function names starting with these prefixes are auto-discovered
 
 ### Error States Logic
-- Default: Any uncorrected errors = CRITICAL, any corrected errors = WARNING
-- Configurable via ruleset parameters
-- Uses `max(state, new_state)` to escalate severity
-- Rate-based thresholds available for normalized comparison
+- Default: any uncorrected error = CRITICAL (levels 1/1); corrected errors,
+  algorithm invocations and grown defects are reported OK
+- Configurable via ruleset parameters, evaluated with `check_levels()`
 
 ## Troubleshooting
 
