@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
+
+### Changed
+
+### Fixed
+
+## 1.1.0 - 2026-10-29
+### New
 - New service "SMART Background Scan <device>" for SAS drives. It shows
   how often the drive's own background surface scan completes, its
   progress, and the unreadable sectors it found. By default it is CRIT
