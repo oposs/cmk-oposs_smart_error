@@ -270,8 +270,8 @@ provide, hard disks and SSDs alike. It skips drives without that log:
 ## Default Thresholds
 
 If no custom thresholds are configured:
-- **Corrected errors**: Warning at any corrected errors
 - **Uncorrected errors**: Critical at any uncorrected errors
+- **Corrected errors, algorithm invocations, grown defects**: Shown and graphed, OK without a rule
 
 ## License
 

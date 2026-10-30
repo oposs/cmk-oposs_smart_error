@@ -24,6 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - README and the check manual page listed "Most enterprise SATA/SAS hard
   drives" as supported. The plugin monitors SAS and SCSI drives only; SATA
   drives have no SCSI error counter log and get no service. (#1)
+- The README section "Default Thresholds" said that any corrected error
+  gives WARN. Without a rule, corrected errors are OK; only uncorrected
+  errors change the state, to CRIT.
 
 ## 1.1.0 - 2026-10-29
 ### New
