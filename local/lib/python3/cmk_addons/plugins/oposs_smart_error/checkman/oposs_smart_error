@@ -16,10 +16,14 @@ description:
  monitored host. The agent plugin uses {smartctl} to collect error counter
  data from storage devices.
 
- The plugin automatically discovers devices that support SCSI error counter
- logs (typically enterprise SATA/SAS drives and many enterprise SSDs).
- Consumer SSDs and USB drives often do not support this feature and will
- not be monitored.
+ The plugin discovers devices that support SCSI error counter logs, which
+ are SAS and SCSI drives. SATA, NVMe and USB drives have no such log and are
+ not monitored.
+
+ By default the agent plugin does not spin up a disk in STANDBY or SLEEP
+ mode. The service of such a disk is OK with "Disk in standby, not checked".
+ The agent bakery rule "OPOSS SMART Error Monitoring (smartctl)" can wake
+ these disks at every run or after a number of skipped runs.
 
  Each operation type (read, write, verify) generates detailed metrics:
  errors corrected by ECC fast/delayed, errors corrected by rereads/rewrites,
@@ -45,3 +49,5 @@ discovery:
  A SAS drive that reports its serial number but no error counter data is
  broken; it also gets a service, which is CRIT and shows the reason smartctl
  gives, for example "device Test Unit Ready [medium or hardware error (serious)]".
+ A disk in standby keeps its service when the agent plugin has read it once;
+ a disk that has slept since the plugin was installed is found once it is awake.

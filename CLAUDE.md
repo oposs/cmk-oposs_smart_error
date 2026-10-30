@@ -81,6 +81,11 @@ old RRD history in the graphs.
 - Uses one `smartctl --json=c --info --log=error --log=background --attributes -d <type>` call per device
 - Sends at most the newest 50 background scan medium error entries per device and counts the rest
 - Filters devices without SCSI error counter logs
+- With `-n standby,3` smartctl exits with 3 for a sleeping disk and reads nothing,
+  not even the serial (bits 0 and 1 never come together otherwise). The agent then
+  prints `<dev>|STANDBY|<json>` with the skip count and the identity from the last
+  read, kept in `$MK_VARDIR/oposs_smart_error.state.json`, so the check keeps the
+  services. A STANDBY line without a serial creates no service
 - Outputs JSON data with pipe separator (sep=124)
 
 ### Error Handling
@@ -134,7 +139,9 @@ SimpleLevels per operation, `{operation}` is read, write or verify:
 
 ### Bakery Parameters
 - `timeout`: timeout for each smartctl call in seconds (default: 5)
-- `interval`: execution interval in seconds (default: 0, every agent run)
+- `interval`: execution interval in seconds (default: 1800)
+- `standby`: `skip` (default) adds `-n standby,3` to the smartctl call, `wake` does not
+- `wake_after`: read a sleeping disk after this many skips in a row (default: 0, never)
 
 ## File Locations
 

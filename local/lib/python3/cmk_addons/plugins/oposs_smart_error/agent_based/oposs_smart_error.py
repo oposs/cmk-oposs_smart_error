@@ -80,7 +80,16 @@ def parse_oposs_smart_error(string_table: StringTable) -> Section:
                 if isinstance(identity, dict):
                     section[device_name] = {**identity, "error": error_msg}
             continue
-        
+
+        if line[1] == "STANDBY":
+            # The agent left the disk asleep and sends what its last read reported
+            try:
+                data = json.loads("|".join(line[2:]))
+            except json.JSONDecodeError:
+                data = None
+            section[device_name] = {**(data if isinstance(data, dict) else {}), "standby": True}
+            continue
+
         try:
             data = json.loads(line[1])
             section[device_name] = data
@@ -118,10 +127,22 @@ def _is_failed_sas_drive(data: Dict[str, Any]) -> bool:
     return bool(data.get("serial")) and str(data.get("transport", "")).startswith("SAS")
 
 
+def _check_standby(data: Dict[str, Any]) -> CheckResult:
+    """A sleeping disk is fine; its counters will be read when it wakes up"""
+    yield Result(state=State.OK, summary="Disk in standby, not checked")
+    skips = data.get("skips")
+    if isinstance(skips, int):
+        yield Result(state=State.OK, notice=f"Not read for {skips} agent runs in a row")
+
+
 def discover_oposs_smart_error(section: Section) -> DiscoveryResult:
     """Discover SMART error services"""
     for device_name, data in section.items():
-        if "error" not in data or _is_failed_sas_drive(data):
+        if data.get("standby"):
+            # Without a serial the disk was never read, so it may have no error counters at all
+            if data.get("serial"):
+                yield Service(item=_service_item(device_name, data))
+        elif "error" not in data or _is_failed_sas_drive(data):
             yield Service(item=_service_item(device_name, data))
 
 
@@ -134,7 +155,11 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
         return
     
     data = section[device_name]
-    
+
+    if data.get("standby"):
+        yield from _check_standby(data)
+        return
+
     if "error" in data:
         yield Result(state=State.CRIT, summary=f"Error: {data['error']}")
         return
@@ -412,7 +437,10 @@ def _render_poh(minutes: int) -> str:
 def discover_oposs_smart_bms(section: Section) -> DiscoveryResult:
     """One service per drive that keeps a background scan results log"""
     for device_name, data in section.items():
-        if "error" not in data and isinstance(data.get("background_scan", {}).get("status"), dict):
+        if data.get("standby"):
+            if data.get("serial") and data.get("background_scan") is True:
+                yield Service(item=_service_item(device_name, data))
+        elif "error" not in data and isinstance(data.get("background_scan", {}).get("status"), dict):
             yield Service(item=_service_item(device_name, data))
 
 
@@ -497,6 +525,9 @@ def _check_bms(
     data = section.get(device_name)
     if data is None:
         yield Result(state=State.UNKNOWN, summary=f"Device {device_name} not found")
+        return
+    if data.get("standby"):
+        yield from _check_standby(data)
         return
     scan = data.get("background_scan", {})
     status = scan.get("status")

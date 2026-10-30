@@ -8,10 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
+- The agent plugin no longer spins up disks in STANDBY or SLEEP mode, also
+  when installed by hand; their "SMART Errors" and "SMART Background Scan"
+  services stay OK with "Disk in standby, not checked". The field "Disks in
+  standby" of the agent bakery rule "OPOSS SMART Error Monitoring (smartctl)"
+  brings back the old behaviour, and "Check a disk in standby anyway after"
+  spins a disk up after a number of skipped runs. (#3)
 
 ### Changed
+- A rule "OPOSS SMART Error Monitoring (smartctl)" without the field
+  "Execution interval" now runs the agent plugin every 30 minutes instead of
+  at every agent run. (#3)
 
 ### Fixed
+- README and the check manual page listed "Most enterprise SATA/SAS hard
+  drives" as supported. The plugin monitors SAS and SCSI drives only; SATA
+  drives have no SCSI error counter log and get no service. (#1)
 
 ## 1.1.0 - 2026-10-29
 ### New
