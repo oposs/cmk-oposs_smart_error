@@ -16,7 +16,7 @@ A comprehensive CheckMK plugin for monitoring SMART error counters on storage de
 - CheckMK 2.3.0 or later
 - `smartmontools` package installed on target hosts
 - Optional: `sg3-utils` on target hosts, to show the background scan settings of SAS drives
-- Storage devices supporting SCSI error counter logs (most enterprise drives)
+- SAS or SCSI drives. SATA and NVMe drives have no SCSI error counter log and are skipped
 
 ## Download
 
@@ -99,8 +99,10 @@ After installing the MKP package or manually copying files:
 1. Go to **Setup > Agents > Agent rules**
 2. Create a new rule for **OPOSS SMART Error Monitoring (smartctl)**
 3. Configure options:
-   - **Execution interval**: How often the plugin runs (0 = every agent run, suggested: 30 minutes)
+   - **Execution interval**: How often the plugin runs (default: 30 minutes, 0 = every agent run)
    - **Command execution timeout**: Timeout for each smartctl call (default: 5 seconds)
+   - **Disks in standby**: Skip disks in STANDBY or SLEEP mode, or spin them up and check them (default: skip)
+   - **Check a disk in standby anyway after**: Spin up a disk after this many skipped runs in a row (default: 0, never)
 4. Assign the rule to target hosts
 5. Go to **Setup > Agents > Agent bakery** and bake agents
 
@@ -109,9 +111,13 @@ After installing the MKP package or manually copying files:
 If not using Agent Bakery, manually copy the agent plugin to target hosts:
 
 ```bash
-scp local/share/check_mk/agents/plugins/oposs_smart_error root@target-host:/usr/lib/check_mk_agent/plugins/
-ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
+ssh root@target-host mkdir -p /usr/lib/check_mk_agent/plugins/1800
+scp local/share/check_mk/agents/plugins/oposs_smart_error root@target-host:/usr/lib/check_mk_agent/plugins/1800/
+ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/1800/oposs_smart_error
 ```
+
+The `1800` directory runs the plugin every 30 minutes. Without a baked
+configuration the plugin skips disks in standby.
 
 ### Service Discovery
 
@@ -120,7 +126,8 @@ ssh root@target-host chmod +x /usr/lib/check_mk_agent/plugins/oposs_smart_error
 3. SMART services will be discovered for each drive with error counter logs,
    including disks behind a RAID controller that `smartctl --scan` lists with a
    device type such as `megaraid,0`. A SAS drive that reports its serial
-   number but no data also gets a service, which is CRIT.
+   number but no data also gets a service, which is CRIT. A disk in standby
+   keeps its services if the plugin has read it once before.
 4. Accept the discovered services
 
 ### Threshold Configuration
@@ -213,6 +220,14 @@ Check that:
 - Agent plugin is executable and in the correct location
 - Plugin produces output: `/usr/lib/check_mk_agent/plugins/oposs_smart_error`
 
+### Disks in standby
+
+By default the plugin does not spin up a disk in STANDBY or SLEEP mode. Its
+services stay OK and show "Disk in standby, not checked" until the disk is
+awake at a plugin run. A disk that has slept since the plugin was installed
+gets no service until it is awake once. Disks in IDLE mode are always
+checked; most disks still spin in IDLE.
+
 ### Error Messages
 
 - **"Failed to get SMART data"**: The rest of the message is smartctl's own
@@ -246,21 +261,17 @@ tail -f ~/var/log/cmc.log
 
 ## Supported Devices
 
-The plugin works with storage devices that support SCSI error counter logs:
-- Most enterprise SATA/SAS hard drives
-- Many enterprise SSDs
-- Some consumer drives (varies by manufacturer)
-
-Devices that typically don't work:
-- Consumer SSDs without SCSI error logging
+The plugin reads the SCSI error counter log, which SAS and SCSI drives
+provide, hard disks and SSDs alike. It skips drives without that log:
+- SATA drives. Use the Checkmk `smart` agent plugin for them.
+- NVMe drives
 - USB-connected drives
-- Some NVMe drives (depending on SMART implementation)
 
 ## Default Thresholds
 
 If no custom thresholds are configured:
-- **Corrected errors**: Warning at any corrected errors
 - **Uncorrected errors**: Critical at any uncorrected errors
+- **Corrected errors, algorithm invocations, grown defects**: Shown and graphed, OK without a rule
 
 ## License
 

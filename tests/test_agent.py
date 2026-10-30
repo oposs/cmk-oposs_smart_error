@@ -48,10 +48,13 @@ FULL = {**INFO, **BACKGROUND}
 
 
 @pytest.fixture
-def agent():
+def agent(tmp_path, monkeypatch):
     loader = SourceFileLoader("oposs_smart_error_agent", str(AGENT))
     module = module_from_spec(spec_from_loader(loader.name, loader))
     loader.exec_module(module)
+    # Never read the host's baked settings or write its state file
+    monkeypatch.setattr(module, "CONFIG_FILE", str(tmp_path / "unbaked" / Path(module.CONFIG_FILE).name))
+    monkeypatch.setattr(module, "STATE_FILE", str(tmp_path / "oposs_smart_error.state.json"))
     return module
 
 
@@ -432,3 +435,165 @@ def test_separator_in_message_is_replaced(agent, monkeypatch, capsys):
     fields = _failed_drive(agent, monkeypatch, capsys, text=text)
     assert "[medium or hardware error (a/b)]" in fields[2]
     assert len(fields) == 4
+
+
+# --- disks in standby ----------------------------------------------------------
+
+# smartctl -n standby,3 exits with 3 and reads nothing when the disk sleeps
+ASLEEP = {"smartctl": {"exit_status": 3},
+          "device": {"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"}}
+
+
+def _sleepy_run(asleep, calls):
+    """smartctl answering as a disk that sleeps while asleep[0] is true"""
+    def run(cmd, **kwargs):
+        calls.append(cmd)
+        if "--scan" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(SCAN), stderr="")
+        if asleep[0] and any(arg.startswith("standby") for arg in cmd):
+            return subprocess.CompletedProcess(cmd, 3, stdout=json.dumps(ASLEEP), stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(FULL), stderr="")
+    return run
+
+
+def _standby_line(capsys):
+    (line,) = _output_lines(capsys)
+    device, status, data = line.split("|", 2)
+    assert (device, status) == ("/dev/sdc", "STANDBY")
+    return json.loads(data)
+
+
+def _bake(agent, bakery, tmp_path, monkeypatch, conf):
+    target, lines = _baked_config(bakery, conf)
+    (tmp_path / target).write_text("\n".join(lines))
+    monkeypatch.setattr(agent, "CONFIG_FILE", str(tmp_path / target))
+
+
+def test_sleeping_disks_are_skipped_by_default(agent, monkeypatch, capsys):
+    calls = []
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run([True], calls))
+    agent.main()
+    assert _standby_line(capsys) == {"skips": 1}
+    (call,) = [c for c in calls if "--scan" not in c]
+    assert call[call.index("-n") + 1] == "standby,3"
+    # the device type still comes last, so autodetection cannot spin the disk up
+    assert call[-3:] == ["-d", "scsi", "/dev/sdc"]
+
+
+def test_waking_is_configurable(agent, bakery, monkeypatch, tmp_path, capsys):
+    _bake(agent, bakery, tmp_path, monkeypatch, {"standby": "wake"})
+    calls = []
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run([True], calls))
+    agent.main()
+    assert "/dev/sdc" in _output_records(capsys)
+    assert not any("-n" in c for c in calls)
+
+
+def test_exit_status_3_without_nocheck_is_still_an_error(agent, monkeypatch, capsys):
+    # Without -n, bits 0 and 1 keep their meaning
+    monkeypatch.setattr(agent, "get_config", lambda: dict(agent.DEFAULT_CONFIG, standby="wake"))
+    monkeypatch.setattr(agent.subprocess, "run", _fake_run({
+        ("--scan",): (0, json.dumps(SCAN)),
+        ("--log=error",): (3, json.dumps(ASLEEP)),
+    }))
+    agent.main()
+    (line,) = _output_lines(capsys)
+    assert line.startswith("/dev/sdc|ERROR|")
+
+
+def test_sleeping_disk_keeps_identity_of_last_read(agent, monkeypatch, capsys):
+    asleep = [False]
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run(asleep, []))
+    agent.main()
+    capsys.readouterr()
+    asleep[0] = True
+    agent.main()
+    agent.main()
+    assert _output_lines(capsys)[-1] == "/dev/sdc|STANDBY|" + json.dumps({
+        "skips": 2,
+        "serial": "2JG5LEHB",
+        "model": "WUH721818AL5204",
+        "firmware": "C680",
+        "capacity_bytes": 18000207937536,
+        "background_scan": True,
+    }, separators=(",", ":"))
+
+
+def test_disk_that_wakes_up_is_read_again(agent, monkeypatch, capsys):
+    asleep = [True]
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run(asleep, []))
+    agent.main()
+    asleep[0] = False
+    agent.main()
+    asleep[0] = True
+    agent.main()
+    lines = _output_lines(capsys)
+    # the skip count starts over after a successful read
+    assert json.loads(lines[-1].split("|", 2)[2])["skips"] == 1
+
+
+def test_sleeping_disk_is_woken_after_n_skips(agent, bakery, monkeypatch, tmp_path, capsys):
+    _bake(agent, bakery, tmp_path, monkeypatch, {"wake_after": 2})
+    calls = []
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run([True], calls))
+    for _ in range(4):
+        agent.main()
+    reads = [c for c in calls if "--scan" not in c]
+    assert ["-n" in c for c in reads] == [True, True, False, True]
+    lines = capsys.readouterr().out.splitlines()
+    statuses = [line.split("|")[1] for line in lines if line.startswith("/dev/sdc")]
+    assert statuses[0] == statuses[1] == statuses[3] == "STANDBY"
+    assert statuses[2].startswith("{")
+
+
+def test_unreadable_state_file_is_ignored(agent, monkeypatch, capsys):
+    with open(agent.STATE_FILE, "w") as f:
+        f.write("not json")
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", _sleepy_run([True], []))
+    agent.main()
+    assert _standby_line(capsys) == {"skips": 1}
+
+
+def test_raid_path_of_a_sleeping_listed_disk_is_skipped(agent, monkeypatch, capsys):
+    # The JBOD disk sleeps; its /dev/bus/0 path must not add a second line
+    scan = {"devices": [
+        {"name": "/dev/sdc", "type": "scsi", "protocol": "SCSI"},
+        {"name": "/dev/bus/0", "type": "megaraid,1", "protocol": "SCSI"},
+    ]}
+    asleep = [False]
+
+    def run(cmd, **kwargs):
+        if "--scan" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(scan), stderr="")
+        if asleep[0]:
+            return subprocess.CompletedProcess(cmd, 3, stdout=json.dumps(ASLEEP), stderr="")
+        return subprocess.CompletedProcess(cmd, 0, stdout=json.dumps(FULL), stderr="")
+
+    monkeypatch.setattr(agent.shutil, "which", lambda name: None)
+    monkeypatch.setattr(agent.subprocess, "run", run)
+    agent.main()
+    capsys.readouterr()
+    asleep[0] = True
+    agent.main()
+    assert [line.split("|")[0] for line in _output_lines(capsys)] == ["/dev/sdc"]
+
+
+def test_bakery_defaults(bakery):
+    files = list(bakery.get_oposs_smart_error_files({}))
+    (plugin,) = [f for f in files if "lines" not in f.kwargs]
+    assert plugin.kwargs["interval"] == 1800
+    (config,) = [f for f in files if "lines" in f.kwargs]
+    assert json.loads("\n".join(config.kwargs["lines"])) == {
+        "timeout": 5, "standby": "skip", "wake_after": 0}
+
+
+def test_standby_defaults_are_the_same_with_and_without_bakery(agent, bakery, monkeypatch, tmp_path):
+    unbaked = agent.get_config()
+    _bake(agent, bakery, tmp_path, monkeypatch, {})
+    assert agent.get_config() == unbaked

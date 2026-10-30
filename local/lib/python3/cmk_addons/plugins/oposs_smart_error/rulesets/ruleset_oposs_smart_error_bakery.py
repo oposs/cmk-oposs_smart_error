@@ -12,6 +12,8 @@ from cmk.rulesets.v1.form_specs import (
     DictElement,
     Dictionary,
     Integer,
+    SingleChoice,
+    SingleChoiceElement,
     TimeSpan,
     TimeMagnitude,
     validators,
@@ -43,6 +45,31 @@ def _parameter_form_oposs_smart_error():
                     displayed_magnitudes=[TimeMagnitude.SECOND, TimeMagnitude.MINUTE],
                     prefill=DefaultValue(5.0),
                     custom_validate=(validators.NumberInRange(min_value=1.0),),
+                )
+            ),
+            "standby": DictElement(
+                parameter_form=SingleChoice(
+                    title=Title("Disks in standby"),
+                    help_text=Help("Reading a disk in STANDBY or SLEEP mode spins it up. When the "
+                                   "disk is skipped, its services stay OK with \"Disk in standby, "
+                                   "not checked\" until it is awake at an agent run."),
+                    elements=[
+                        SingleChoiceElement(name="skip", title=Title("Skip them, do not spin them up")),
+                        SingleChoiceElement(name="wake", title=Title("Spin them up and check them")),
+                    ],
+                    prefill=DefaultValue("skip"),
+                )
+            ),
+            "wake_after": DictElement(
+                parameter_form=Integer(
+                    title=Title("Check a disk in standby anyway after"),
+                    unit_symbol="skipped runs",
+                    help_text=Help("Spins up a disk that was skipped this many agent runs in a row, "
+                                   "so a disk that sleeps all the time still gets checked. "
+                                   "With an execution interval of 30 minutes, 48 means once a day. "
+                                   "0 never spins a disk up."),
+                    prefill=DefaultValue(0),
+                    custom_validate=(validators.NumberInRange(min_value=0),),
                 )
             ),
         }

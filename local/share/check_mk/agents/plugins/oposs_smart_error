@@ -13,17 +13,55 @@ import subprocess
 from typing import Dict, List, Optional, Tuple
 
 CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "oposs_smart_error.json")
+# Skip counts and the identity of each disk, for disks that sleep
+STATE_FILE = os.path.join(os.environ.get("MK_VARDIR", "/var/lib/check_mk_agent"), "oposs_smart_error.state.json")
 
-def get_timeout() -> int:
-    """Read timeout from config file, return default if not found."""
-    if not os.path.exists(CONFIG_FILE):
-        return 5
+# standby: "skip" leaves disks in STANDBY or SLEEP alone, "wake" reads them anyway.
+# wake_after: read a sleeping disk after this many skips in a row, 0 never.
+DEFAULT_CONFIG = {"timeout": 5, "standby": "skip", "wake_after": 0}
+
+
+def get_config() -> Dict:
+    """Read the baked settings; a missing file or value keeps the default."""
+    config = dict(DEFAULT_CONFIG)
     try:
         with open(CONFIG_FILE, 'r') as f:
-            config = json.load(f)
-        return max(1, int(config.get("timeout", 5)))
-    except (json.JSONDecodeError, IOError, TypeError, ValueError):
-        return 5
+            baked = json.load(f)
+        if isinstance(baked, dict):
+            config.update(baked)
+    except (json.JSONDecodeError, OSError):
+        pass
+    for key, minimum in (("timeout", 1), ("wake_after", 0)):
+        try:
+            config[key] = max(minimum, int(config[key]))
+        except (TypeError, ValueError):
+            config[key] = DEFAULT_CONFIG[key]
+    if config["standby"] not in ("skip", "wake"):
+        config["standby"] = DEFAULT_CONFIG["standby"]
+    return config
+
+
+def get_timeout() -> int:
+    """Timeout for each smartctl call in seconds"""
+    return get_config()["timeout"]
+
+
+def load_state() -> Dict:
+    try:
+        with open(STATE_FILE, 'r') as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return state if isinstance(state, dict) else {}
+
+
+def save_state(state: Dict) -> None:
+    try:
+        with open(STATE_FILE + '.new', 'w') as f:
+            json.dump(state, f)
+        os.replace(STATE_FILE + '.new', STATE_FILE)
+    except OSError:
+        pass
 
 
 def get_smart_devices(timeout: int) -> List[Dict]:
@@ -51,6 +89,11 @@ SMARTCTL_FATAL_BITS = {
     0x01: "command line did not parse",
     0x02: "device open failed",
 }
+
+# Exit status asked of smartctl -n for a disk it left asleep. smartctl never
+# sets bits 0 and 1 together itself: after bit 0 it opens no device.
+SMARTCTL_ASLEEP = 3
+ASLEEP = "asleep"
 
 
 def smartctl_message(args: List[str], timeout: int) -> str:
@@ -105,6 +148,8 @@ def run_smartctl_json(args: List[str], timeout: int) -> Tuple[Optional[Dict], st
     rc = result.returncode
     if rc < 0:
         return None, f"smartctl killed by signal {-rc}"
+    if rc == SMARTCTL_ASLEEP and '-n' in args:
+        return None, ASLEEP
     reasons = [text for bit, text in SMARTCTL_FATAL_BITS.items() if rc & bit]
     try:
         data = json.loads(result.stdout)
@@ -145,14 +190,17 @@ def device_key(device: Dict) -> str:
 BMS_MAX_RESULTS = 50
 
 
-def get_smart_data(device: Dict, timeout: int) -> Tuple[Optional[Dict], str]:
+def get_smart_data(device: Dict, timeout: int, skip_asleep: bool) -> Tuple[Optional[Dict], str]:
     """Get device info, error counter log and background scan log in one call.
 
     A drive without a background scan log only sets exit status bit 2, so
-    its error counters still arrive.
+    its error counters still arrive. With skip_asleep, a disk in STANDBY or
+    SLEEP is left alone and the reason is ASLEEP.
     """
+    nocheck = ['-n', f'standby,{SMARTCTL_ASLEEP}'] if skip_asleep else []
     return run_smartctl_json(
-        ['--json=c', '--info', '--log=error', '--log=background', '--attributes', *device_args(device)],
+        ['--json=c', *nocheck, '--info', '--log=error', '--log=background', '--attributes',
+         *device_args(device)],
         timeout)
 
 
@@ -216,16 +264,29 @@ def drive_identity(data: Dict) -> Optional[Dict]:
     }
 
 
+def standby_line(device_name: str, skips: int, identity: Optional[Dict]) -> str:
+    """Line for a disk left asleep, with what its last read reported.
+
+    The identity lets the check keep the services of the disk.
+    """
+    data = {'skips': skips, **(identity or {})}
+    return f"{device_name}|STANDBY|{json.dumps(data, separators=(',', ':'))}"
+
+
 def main():
     """Main function to collect and output SMART error data"""
-    timeout = get_timeout()
+    config = get_config()
+    timeout = config['timeout']
     devices = get_smart_devices(timeout)
-    
+
     if not devices:
         # No SMART devices found - don't output section at all
         return
 
     print("<<<oposs_smart_error:sep(124)>>>")
+
+    old_state = load_state()
+    state = {}
 
     # A JBOD disk on a RAID controller is listed twice, as /dev/sdX and as
     # /dev/bus/N with a megaraid,N type. Plain devices go first, and a RAID
@@ -238,8 +299,27 @@ def main():
             continue
         device_name = device_key(device)
 
-        smart_data, reason = get_smart_data(device, timeout)
+        known = old_state.get(device_name)
+        known = known if isinstance(known, dict) else {}
+        skips = known.get('skips', 0) if isinstance(known.get('skips'), int) else 0
+        identity = known.get('identity') if isinstance(known.get('identity'), dict) else None
+        skip_asleep = config['standby'] == 'skip' and not (
+            config['wake_after'] and skips >= config['wake_after'])
+
+        smart_data, reason = get_smart_data(device, timeout, skip_asleep)
+        if reason == ASLEEP:
+            state[device_name] = {'skips': skips + 1, 'identity': identity}
+            # A RAID path never read on its own is most likely a disk already
+            # listed under its plain name, and nothing can tell them apart
+            if ',' in device.get('type', '') and (identity is None or identity.get('serial') in serials_seen):
+                continue
+            if identity and identity.get('serial'):
+                serials_seen.add(identity['serial'])
+            print(standby_line(device_name, skips + 1, identity))
+            continue
         if reason:
+            if known:
+                state[device_name] = known
             # '|' separates the fields of the line
             line = f"{device_name}|ERROR|Failed to get SMART data: {reason.replace('|', '/')}"
             identity = drive_identity(smart_data or {})
@@ -300,8 +380,19 @@ def main():
             mode_page = get_bms_mode_page(device['name'], timeout)
             if mode_page:
                 output_data['bms_mode_page'] = mode_page
-        
+
+        state[device_name] = {'skips': 0, 'identity': {
+            'serial': serial_info,
+            'model': model_info,
+            'firmware': firmware_info,
+            'capacity_bytes': output_data['capacity_bytes'],
+            'background_scan': 'background_scan' in output_data,
+        }}
+
         print(f"{device_name}|{json.dumps(output_data, separators=(',', ':'))}")
+
+    if state != old_state:
+        save_state(state)
 
 
 if __name__ == "__main__":

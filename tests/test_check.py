@@ -366,3 +366,55 @@ def test_separator_inside_identity_survives_the_split(check):
     line[3] = line[3].replace("WDC WUH722222AL5204", "A|B")
     section = check.parse_oposs_smart_error([line[:3] + line[3].split("|")])
     assert section["/dev/sdj"]["model"] == "A|B"
+
+
+# --- disks in standby ----------------------------------------------------------
+
+def _standby(**data):
+    return ["/dev/sdc", "STANDBY", json.dumps(data)]
+
+
+STANDBY_IDENTITY = {"skips": 3, "serial": "2JG5LEHB", "model": "WUH721818AL5204", "firmware": "C680",
+                    "capacity_bytes": 18000207937536, "background_scan": True}
+
+
+def test_sleeping_disk_keeps_its_services(check):
+    awake = check.parse_oposs_smart_error([["/dev/sdc", json.dumps(_device(background_scan=_scan()))]])
+    asleep = check.parse_oposs_smart_error([_standby(**STANDBY_IDENTITY)])
+    for discover in (check.discover_oposs_smart_error, check.discover_oposs_smart_bms):
+        assert [s.item for s in discover(asleep)] == [s.item for s in discover(awake)]
+
+
+def test_sleeping_disk_without_scan_log_gets_no_bms_service(check):
+    section = check.parse_oposs_smart_error([_standby(**dict(STANDBY_IDENTITY, background_scan=False))])
+    assert list(check.discover_oposs_smart_bms(section)) == []
+    assert len(list(check.discover_oposs_smart_error(section))) == 1
+
+
+def test_never_read_sleeping_disk_is_not_discovered(check):
+    # A disk asleep since the agent was installed, possibly a SATA disk
+    section = check.parse_oposs_smart_error([_standby(skips=1)])
+    assert list(check.discover_oposs_smart_error(section)) == []
+    assert list(check.discover_oposs_smart_bms(section)) == []
+
+
+def test_sleeping_disk_is_ok(check):
+    section = check.parse_oposs_smart_error([_standby(**STANDBY_IDENTITY)])
+    for results in (check.check_oposs_smart_error("/dev/sdc (2JG5LEHB)", {}, section),
+                    check._check_bms("/dev/sdc (2JG5LEHB)", check.BMS_DEFAULT_PARAMETERS, section, {})):
+        results = list(results)
+        assert all(r.state == State.OK for r in results if isinstance(r, Result))
+        assert results[0].summary == "Disk in standby, not checked"
+        assert "3 agent runs in a row" in results[1].details
+        assert not [r for r in results if isinstance(r, Metric)]
+
+
+def test_bms_age_tracking_survives_a_nap(check):
+    store = {}
+    section = check.parse_oposs_smart_error([["/dev/sdc", json.dumps(_device(background_scan=_scan(),
+                                                                           power_on_minutes=POH))]])
+    list(check._check_bms("/dev/sdc (2JG5LEHB)", check.BMS_DEFAULT_PARAMETERS, section, store))
+    remembered = dict(store)
+    asleep = check.parse_oposs_smart_error([_standby(**STANDBY_IDENTITY)])
+    list(check._check_bms("/dev/sdc (2JG5LEHB)", check.BMS_DEFAULT_PARAMETERS, asleep, store))
+    assert store == remembered

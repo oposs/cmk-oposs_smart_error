@@ -55,3 +55,18 @@ def test_bakery_timeout_has_a_minimum():
     timeout = bakery.rule_spec_oposs_smart_error_bakery.parameter_form().elements["timeout"].parameter_form
     ranges = [v.range for v in (timeout.custom_validate or ()) if isinstance(v, validators.NumberInRange)]
     assert ranges and ranges[0][0] >= 1
+
+
+def test_bakery_form_prefills_match_bakery_defaults():
+    import json
+    bakery_rs = _load(PLUGIN / "rulesets/ruleset_oposs_smart_error_bakery.py", "test_oposs_smart_error_bakery_rs")
+    bakery = _load(ROOT / "local/lib/python3/cmk/base/cee/plugins/bakery/oposs_smart_error.py",
+                   "test_oposs_smart_error_bakery")
+    form = bakery_rs.rule_spec_oposs_smart_error_bakery.parameter_form()
+    files = list(bakery.get_oposs_smart_error_files({}))
+    (config,) = [f for f in files if "lines" in f.kwargs]
+    (plugin,) = [f for f in files if "lines" not in f.kwargs]
+    baked = dict(json.loads("\n".join(config.kwargs["lines"])), interval=plugin.kwargs["interval"])
+    assert set(form.elements) == set(baked)
+    for key, default in baked.items():
+        assert form.elements[key].parameter_form.prefill.value == default, key

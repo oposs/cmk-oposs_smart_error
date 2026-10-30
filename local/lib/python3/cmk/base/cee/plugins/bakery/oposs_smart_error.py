@@ -23,12 +23,17 @@ def get_oposs_smart_error_files(conf: Dict[str, Any]):
         return
     
     # Get configuration values
-    interval = int(conf.get("interval", 0))
+    # Error counters and grown defects change slowly; smartd polls every 30 min
+    interval = int(conf.get("interval", 1800))
     timeout = conf.get("timeout", 5)
 
     # Generate config file in JSON format
     # At least 1 s: with 0, every smartctl call times out at once
-    config_content = json.dumps({"timeout": max(1, int(timeout))})
+    config_content = json.dumps({
+        "timeout": max(1, int(timeout)),
+        "standby": conf.get("standby", "skip"),
+        "wake_after": max(0, int(conf.get("wake_after", 0))),
+    })
     yield PluginConfig(
         base_os=OS.LINUX,
         target=Path("oposs_smart_error.json"),
