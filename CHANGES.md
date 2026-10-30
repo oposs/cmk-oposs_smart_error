@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
+
+### Changed
+
+### Fixed
+
+## 1.2.0 - 2026-10-30
+### New
 - The agent plugin no longer spins up disks in STANDBY or SLEEP mode, also
   when installed by hand; their "SMART Errors" and "SMART Background Scan"
   services stay OK with "Disk in standby, not checked". The field "Disks in
