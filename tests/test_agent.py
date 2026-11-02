@@ -597,3 +597,18 @@ def test_standby_defaults_are_the_same_with_and_without_bakery(agent, bakery, mo
     unbaked = agent.get_config()
     _bake(agent, bakery, tmp_path, monkeypatch, {})
     assert agent.get_config() == unbaked
+
+
+# --- version -----------------------------------------------------------------
+
+def test_release_stamp_replaces_version(tmp_path):
+    """Run the sed line of the release workflow on a copy of the agent"""
+    workflow = (Path(__file__).parent.parent / ".github/workflows/release.yml").read_text()
+    (sed,) = [line.strip() for line in workflow.splitlines() if "__version__" in line and "sed -i" in line]
+    copy = tmp_path / "oposs_smart_error"
+    copy.write_text(AGENT.read_text())
+    subprocess.run(["bash", "-euc", sed], check=True, env={"VERSION": "9.8.7", "AGENT": str(copy)})
+    loader = SourceFileLoader("stamped_agent", str(copy))
+    module = module_from_spec(spec_from_loader(loader.name, loader))
+    loader.exec_module(module)
+    assert module.__version__ == "9.8.7"

@@ -220,6 +220,17 @@ jobs:
         with:
           ref: ${{ needs.create-tag.outputs.version }}
 
+      - name: Write version into agent plugin
+        env:
+          VERSION: ${{ needs.create-tag.outputs.version_no_v }}
+          AGENT: local/share/check_mk/agents/plugins/oposs_smart_error
+        run: |
+          set -euo pipefail
+          sed -i "s/^__version__ = .*/__version__ = \"${VERSION}\"/" "$AGENT"
+          # Fail the release if the line was not found
+          grep -qx "__version__ = \"${VERSION}\"" "$AGENT"
+          echo "::notice title=Agent Version::Agent plugin version set to ${VERSION}"
+
       - name: Build MKP Package
         id: build_package
         uses: oposs/mkp-builder@v2
