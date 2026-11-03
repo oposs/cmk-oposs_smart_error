@@ -608,8 +608,8 @@ def test_release_writes_version_into_agent(tmp_path):
     config = json.loads((Path(__file__).parent.parent / ".github/repo-infra.json").read_text())
     (spec,) = [f for f in config["version_files"] if Path(f["path"]).name == AGENT.name]
     stamped = re.sub(spec["pattern"], spec["replacement"].replace("$VERSION", "9.8.7"),
-                     AGENT.read_text(), count=1, flags=re.M)
-    assert re.search(spec["verify"].replace("$VERSION", re.escape("9.8.7")), stamped, flags=re.M)
+                     AGENT.read_text(), count=1, flags=re.MULTILINE)
+    assert re.search(spec["verify"].replace("$VERSION", re.escape("9.8.7")), stamped, flags=re.MULTILINE)
     copy = tmp_path / "oposs_smart_error"
     copy.write_text(stamped)
     loader = SourceFileLoader("stamped_agent", str(copy))
