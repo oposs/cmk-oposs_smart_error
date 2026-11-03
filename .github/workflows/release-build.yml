@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   mkp:
-    uses: oposs/repo-infra/.github/workflows/ri-release-mkp.yml@checkmk-release-mkp
+    uses: oposs/repo-infra/.github/workflows/ri-release-mkp.yml@v2
     with:
       version: ${{ inputs.version }}
       ref: ${{ inputs.ref }}
