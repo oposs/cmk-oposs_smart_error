@@ -12,7 +12,8 @@ import shutil
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
-# The release workflow replaces this with the released version
+# Create release PR writes the released version here (version_files in
+# .github/repo-infra.json)
 __version__ = "unreleased"
 
 CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "oposs_smart_error.json")
