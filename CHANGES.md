@@ -8,11 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
-- The agent plugin from the MKP carries the release version in `__version__`.
 
 ### Changed
 
 ### Fixed
+
+## 1.3.0 - 2026-11-03
+### New
+- The agent plugin from the MKP carries the release version in `__version__`.
 
 ## 1.2.0 - 2026-10-30
 ### New
