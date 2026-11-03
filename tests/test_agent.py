@@ -1,6 +1,7 @@
 """Tests for the agent plugin (runs on the monitored host)."""
 
 import json
+import re
 import subprocess
 from importlib.machinery import SourceFileLoader
 from importlib.util import module_from_spec, spec_from_loader
@@ -601,13 +602,16 @@ def test_standby_defaults_are_the_same_with_and_without_bakery(agent, bakery, mo
 
 # --- version -----------------------------------------------------------------
 
-def test_release_stamp_replaces_version(tmp_path):
-    """Run the sed line of the release workflow on a copy of the agent"""
-    workflow = (Path(__file__).parent.parent / ".github/workflows/release.yml").read_text()
-    (sed,) = [line.strip() for line in workflow.splitlines() if "__version__" in line and "sed -i" in line]
+def test_release_writes_version_into_agent(tmp_path):
+    """Apply the version_files entry of .github/repo-infra.json to a copy of
+    the agent, as Create release PR does (a multiline regex, first match)"""
+    config = json.loads((Path(__file__).parent.parent / ".github/repo-infra.json").read_text())
+    (spec,) = [f for f in config["version_files"] if Path(f["path"]).name == AGENT.name]
+    stamped = re.sub(spec["pattern"], spec["replacement"].replace("$VERSION", "9.8.7"),
+                     AGENT.read_text(), count=1, flags=re.M)
+    assert re.search(spec["verify"].replace("$VERSION", re.escape("9.8.7")), stamped, flags=re.M)
     copy = tmp_path / "oposs_smart_error"
-    copy.write_text(AGENT.read_text())
-    subprocess.run(["bash", "-euc", sed], check=True, env={"VERSION": "9.8.7", "AGENT": str(copy)})
+    copy.write_text(stamped)
     loader = SourceFileLoader("stamped_agent", str(copy))
     module = module_from_spec(spec_from_loader(loader.name, loader))
     loader.exec_module(module)

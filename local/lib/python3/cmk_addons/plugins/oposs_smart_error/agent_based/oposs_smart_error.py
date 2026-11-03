@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 CheckMK Check Plugin for SMART Error Monitoring
 Processes SMART error counter logs and generates metrics
@@ -7,7 +6,8 @@ Compatible with CheckMK 2.3
 """
 
 import json
-from typing import Any, Dict, Iterator, List, Mapping, Optional, Tuple
+from collections.abc import Mapping
+from typing import Any
 
 from cmk.agent_based.v2 import (
     AgentSection,
@@ -19,13 +19,12 @@ from cmk.agent_based.v2 import (
     Service,
     State,
     StringTable,
-    render,
     check_levels,
     get_value_store,
+    render,
 )
 
-
-Section = Dict[str, Dict[str, Any]]
+Section = dict[str, dict[str, Any]]
 
 
 def _render_error_count(value: float) -> str:
@@ -51,7 +50,7 @@ def _create_device_description(device_path: str, model: str, serial: str, capaci
     
     if parts:
         # Drop the /dev/ prefix (sda from /dev/sda, bus/0 megaraid,1 from /dev/bus/0 megaraid,1)
-        device_name = device_path[len("/dev/"):] if device_path.startswith("/dev/") else device_path
+        device_name = device_path.removeprefix("/dev/")
         return f"{' '.join(parts)} ({device_name})"
     else:
         return device_path
@@ -99,7 +98,7 @@ def parse_oposs_smart_error(string_table: StringTable) -> Section:
     return section
 
 
-def _service_item(device_name: str, data: Dict[str, Any]) -> str:
+def _service_item(device_name: str, data: dict[str, Any]) -> str:
     """Service item with device name and serial number for unique identification"""
     serial = data.get("serial", "")
     if serial:
@@ -118,7 +117,7 @@ def _device_from_item(item: str) -> str:
     return item.strip()
 
 
-def _is_failed_sas_drive(data: Dict[str, Any]) -> bool:
+def _is_failed_sas_drive(data: dict[str, Any]) -> bool:
     """A SAS drive that names itself but gives no data is broken.
 
     Card readers and USB bridges without a medium fail the same way, but
@@ -127,7 +126,7 @@ def _is_failed_sas_drive(data: Dict[str, Any]) -> bool:
     return bool(data.get("serial")) and str(data.get("transport", "")).startswith("SAS")
 
 
-def _check_standby(data: Dict[str, Any]) -> CheckResult:
+def _check_standby(data: dict[str, Any]) -> CheckResult:
     """A sleeping disk is fine; its counters will be read when it wakes up"""
     yield Result(state=State.OK, summary="Disk in standby, not checked")
     skips = data.get("skips")
@@ -166,7 +165,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
     
     error_counters = data.get("error_counters", {})
     device_info = data.get("device", device_name)
-    protocol = data.get("protocol", "unknown")
     model = data.get("model", "")
     serial = data.get("serial", "")
     capacity_bytes = data.get("capacity_bytes", 0)
@@ -191,7 +189,6 @@ def check_oposs_smart_error(item: str, params: Mapping[str, Any], section: Secti
         eccfast = counters.get("errors_corrected_by_eccfast", 0)
         eccdelayed = counters.get("errors_corrected_by_eccdelayed", 0)
         rereads = counters.get("errors_corrected_by_rereads_rewrites", 0)
-        corrected = counters.get("total_errors_corrected", 0)
         algorithm_invocations = counters.get("correction_algorithm_invocations", 0)
         processed_gb = float(counters.get("gigabytes_processed", "0"))
         processed_bytes = processed_gb * (1024 ** 3)  # Convert GB to bytes
@@ -408,7 +405,7 @@ BMS_DEFAULT_PARAMETERS = {
 }
 
 
-def parse_bms_mode_page(raw_hex: str) -> Optional[Dict[str, Any]]:
+def parse_bms_mode_page(raw_hex: str) -> dict[str, Any] | None:
     """Decode a MODE SENSE(10) response holding the Background Control page"""
     try:
         raw = bytes.fromhex(raw_hex)
@@ -445,7 +442,7 @@ def discover_oposs_smart_bms(section: Section) -> DiscoveryResult:
 
 
 def _check_bms_age(
-    scans: int, poh: int, params: Mapping[str, Any], value_store: Dict[str, Any]
+    scans: int, poh: int, params: Mapping[str, Any], value_store: dict[str, Any]
 ) -> CheckResult:
     """Time since the scan counter last went up, in drive power-on time.
 
@@ -472,7 +469,7 @@ def _check_bms_age(
     )
 
 
-def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping[str, Any]) -> CheckResult:
+def _check_bms_results(scan: dict[str, Any], poh: int | None, params: Mapping[str, Any]) -> CheckResult:
     """Medium errors the background scan has logged"""
     entries = sorted(
         (v for k, v in scan.items() if k.startswith("result_") and isinstance(v, dict)),
@@ -486,7 +483,7 @@ def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping
         return
 
     window_min = params["recent_window"] / 60
-    groups: Dict[str, List[str]] = {"recent_unrecovered": [], "recent_recovered": [], "old": []}
+    groups: dict[str, list[str]] = {"recent_unrecovered": [], "recent_recovered": [], "old": []}
     for entry in entries:
         when = entry.get("accumulated_power_on", {}).get("minutes", 0)
         reassign = entry.get("reassign_status", {}).get("value", 0)
@@ -519,7 +516,7 @@ def _check_bms_results(scan: Dict[str, Any], poh: Optional[int], params: Mapping
 
 
 def _check_bms(
-    item: str, params: Mapping[str, Any], section: Section, value_store: Dict[str, Any]
+    item: str, params: Mapping[str, Any], section: Section, value_store: dict[str, Any]
 ) -> CheckResult:
     device_name = _device_from_item(item)
     data = section.get(device_name)
@@ -537,7 +534,7 @@ def _check_bms(
 
     value = status.get("value")
     try:
-        progress: Optional[float] = float(str(status.get("scan_progress", "0")).rstrip("%") or 0)
+        progress: float | None = float(str(status.get("scan_progress", "0")).rstrip("%") or 0)
     except ValueError:
         progress = None
     text = BMS_STATUS.get(value, f"unknown status {value}")

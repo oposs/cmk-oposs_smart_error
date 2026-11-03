@@ -1,0 +1,14 @@
+{
+  "moving_major_tag": false,
+  "version_files": [
+    {
+      "path": "local/share/check_mk/agents/plugins/oposs_smart_error",
+      "pattern": "^__version__ = \"[^\"]*\"",
+      "replacement": "__version__ = \"$VERSION\"",
+      "verify": "^__version__ = \"$VERSION\""
+    }
+  ],
+  "release_assets": [
+    "oposs_smart_error-*.mkp"
+  ]
+}
