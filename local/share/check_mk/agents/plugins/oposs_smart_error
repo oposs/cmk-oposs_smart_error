@@ -12,6 +12,9 @@ import shutil
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
+# The release workflow replaces this with the released version
+__version__ = "unreleased"
+
 CONFIG_FILE = os.path.join(os.environ.get("MK_CONFDIR", "/etc/check_mk"), "oposs_smart_error.json")
 # Skip counts and the identity of each disk, for disks that sleep
 STATE_FILE = os.path.join(os.environ.get("MK_VARDIR", "/var/lib/check_mk_agent"), "oposs_smart_error.state.json")

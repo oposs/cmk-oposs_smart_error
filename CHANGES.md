@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
+- The agent plugin from the MKP carries the release version in `__version__`.
 
 ### Changed
 
