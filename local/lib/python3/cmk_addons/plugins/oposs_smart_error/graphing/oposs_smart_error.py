@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 CheckMK Metrics and Graph Definitions for SMART Error Monitoring
 Defines 6 combined graphs showing absolute and relative error metrics
@@ -7,6 +6,10 @@ Compatible with CheckMK 2.3
 
 
 from cmk.graphing.v1 import Title
+from cmk.graphing.v1.graphs import (
+    Graph,
+    MinimalRange,
+)
 from cmk.graphing.v1.metrics import (
     Color,
     DecimalNotation,
@@ -15,14 +18,10 @@ from cmk.graphing.v1.metrics import (
     TimeNotation,
     Unit,
 )
-from cmk.graphing.v1.graphs import (
-    Graph,
-    MinimalRange,
-)
 from cmk.graphing.v1.perfometers import (
-    Perfometer,
-    FocusRange,
     Closed,
+    FocusRange,
+    Perfometer,
 )
 
 # Define units

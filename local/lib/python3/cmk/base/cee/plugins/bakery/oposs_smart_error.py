@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 CheckMK Bakery Plugin for SMART Error Monitoring
 Automatically distributes the agent plugin to monitored hosts
@@ -7,17 +6,17 @@ Compatible with CheckMK 2.3
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from cmk.base.plugins.bakery.bakery_api.v1 import (
-    register,
+    OS,
     Plugin,
     PluginConfig,
-    OS,
+    register,
 )
 
 
-def get_oposs_smart_error_files(conf: Dict[str, Any]):
+def get_oposs_smart_error_files(conf: dict[str, Any]):
     """Files function for OPOSS SMART error bakery plugin"""
     if conf is None or not conf.get("enabled", True):
         return

@@ -1,21 +1,19 @@
-#!/usr/bin/env python3
 """
 CheckMK Bakery Ruleset for SMART Error Monitoring
 Provides GUI configuration for the agent bakery plugin
 Compatible with CheckMK 2.3
 """
 
-from cmk.rulesets.v1 import Label, Title, Help
+from cmk.rulesets.v1 import Help, Label, Title
 from cmk.rulesets.v1.form_specs import (
-    BooleanChoice,
     DefaultValue,
     DictElement,
     Dictionary,
     Integer,
     SingleChoice,
     SingleChoiceElement,
-    TimeSpan,
     TimeMagnitude,
+    TimeSpan,
     validators,
 )
 from cmk.rulesets.v1.rule_specs import AgentConfig, Topic

@@ -1,21 +1,20 @@
-#!/usr/bin/env python3
 """
 CheckMK Web GUI configuration for SMART Error monitoring
 Defines rule sets and parameter forms for threshold configuration
 Compatible with CheckMK 2.3
 """
 
-from cmk.rulesets.v1 import Title, Help, Label
+from cmk.rulesets.v1 import Help, Title
 from cmk.rulesets.v1.form_specs import (
-    Dictionary,
-    DictElement,
-    Integer,
-    SimpleLevels,
-    LevelDirection,
     DefaultValue,
+    DictElement,
+    Dictionary,
+    Integer,
+    LevelDirection,
     ServiceState,
-    TimeSpan,
+    SimpleLevels,
     TimeMagnitude,
+    TimeSpan,
 )
 from cmk.rulesets.v1.rule_specs import (
     CheckParameters,
