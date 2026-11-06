@@ -394,8 +394,8 @@ def test_failed_drive_reports_smartctl_message(agent, monkeypatch, capsys):
     fields = _failed_drive(agent, monkeypatch, capsys)
     assert fields[:3] == [
         "/dev/sdc", "ERROR",
-        "Failed to get SMART data: device Test Unit Ready [medium or hardware error (serious)]"
-        " (smartctl exit status 2)",
+        ("Failed to get SMART data: device Test Unit Ready [medium or hardware error (serious)]"
+         " (smartctl exit status 2)"),
     ]
 
 
@@ -427,8 +427,8 @@ def test_open_failure_message(agent, monkeypatch, capsys):
             "Smartctl open device: /dev/sdc failed: No such device\n")
     fields = _failed_drive(agent, monkeypatch, capsys, text=text, data={"smartctl": {"exit_status": 2}})
     assert fields == ["/dev/sdc", "ERROR",
-                      "Failed to get SMART data: Smartctl open device: /dev/sdc failed: No such device"
-                      " (smartctl exit status 2)"]
+                      ("Failed to get SMART data: Smartctl open device: /dev/sdc failed: No such device"
+                       " (smartctl exit status 2)")]
 
 
 def test_separator_in_message_is_replaced(agent, monkeypatch, capsys):

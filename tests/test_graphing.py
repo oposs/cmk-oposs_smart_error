@@ -6,7 +6,6 @@ import pathlib
 import sys
 
 import pytest
-
 from cmk.agent_based.v2 import Metric
 from cmk.graphing.v1 import graphs, metrics, perfometers, translations
 

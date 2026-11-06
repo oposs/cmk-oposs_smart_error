@@ -7,7 +7,6 @@ import re
 import sys
 
 import pytest
-
 from cmk.agent_based.v2 import Metric, Result, Service, State
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
