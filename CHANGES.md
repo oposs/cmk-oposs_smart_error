@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 ### Fixed
+- The agent plugin in the 1.3.0 package was not executable (`-rw-r--r--`).
+  The Checkmk agent runs only executable plugins, so a plugin copied by hand
+  from that package was skipped and the "SMART Errors" services got no data.
 
 ## 1.3.0 - 2026-11-03
 ### New

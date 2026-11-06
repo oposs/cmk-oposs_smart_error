@@ -616,3 +616,12 @@ def test_release_writes_version_into_agent(tmp_path):
     module = module_from_spec(spec_from_loader(loader.name, loader))
     loader.exec_module(module)
     assert module.__version__ == "9.8.7"
+
+
+def test_agent_plugin_is_executable_in_git():
+    # The Checkmk agent skips plugins without the executable bit. The mode
+    # in git is what the MKP build checks out; the 1.3.0 release commit
+    # dropped it and the package shipped the plugin as -rw-r--r--.
+    out = subprocess.run(["git", "ls-files", "-s", AGENT.name], cwd=AGENT.parent,
+                         capture_output=True, text=True, check=True).stdout
+    assert out.split()[0] == "100755"
