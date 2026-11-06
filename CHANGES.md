@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### New
-- The package carries the release version in its check plugin (`__version__`).
 
 ### Changed
+
+### Fixed
+
+## 1.3.1 - 2026-11-06
+### New
+- The package carries the release version in its check plugin (`__version__`).
 
 ### Fixed
 - The agent plugin in the 1.3.0 package was not executable (`-rw-r--r--`).
